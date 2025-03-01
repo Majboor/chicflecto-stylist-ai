@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ButtonCustom } from "@/components/ui/button-custom";
-import { UploadCloud, Camera, ChevronLeft, ChevronRight } from "lucide-react";
+import { UploadCloud, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { FlashcardDeck } from "@/components/flashcard-deck";
 import { useNavigate } from "react-router-dom";
@@ -59,16 +59,30 @@ const StyleAdvice = () => {
     formData.append("image", selectedImage);
     
     try {
+      // Add console logs for debugging
+      console.log("Sending request to API with image:", selectedImage.name);
+      
       const response = await fetch("https://fashion.techrealm.online/api/style", {
         method: "POST",
         body: formData,
       });
       
+      // Log the response status
+      console.log("API response status:", response.status);
+      
       if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error response:", errorData);
+        throw new Error(`Server responded with ${response.status}: ${errorData.error || 'Unknown error'}`);
       }
       
       const data = await response.json();
+      console.log("API response data:", data);
+      
+      if (!data.style_advice || !data.outfit_analysis) {
+        throw new Error("Invalid response format from server");
+      }
+      
       setStyleResponse(data);
       toast.success("Analysis complete!");
     } catch (error) {

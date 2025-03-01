@@ -1,6 +1,7 @@
 
 import { ButtonCustom } from "./ui/button-custom"
 import { ChevronRight, Wand2 } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export function HeroSection() {
   return (
@@ -31,15 +32,19 @@ export function HeroSection() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up [--delay:200ms]">
-            <ButtonCustom size="xl" className="group rounded-full" variant="accent">
-              <span>Get Style Recommendations</span>
-              <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-            </ButtonCustom>
+            <Link to="/style-advice">
+              <ButtonCustom size="xl" className="group rounded-full" variant="accent">
+                <span>Get Style Recommendations</span>
+                <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
+              </ButtonCustom>
+            </Link>
             
-            <ButtonCustom size="xl" variant="outline" className="group rounded-full">
-              <span>Create Style Profile</span>
-              <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </ButtonCustom>
+            <Link to="/profile">
+              <ButtonCustom size="xl" variant="outline" className="group rounded-full">
+                <span>Create Style Profile</span>
+                <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </ButtonCustom>
+            </Link>
           </div>
         </div>
       </div>
