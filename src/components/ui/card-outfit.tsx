@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils"
 import { Heart } from "lucide-react"
 import { useState } from "react"
@@ -9,17 +8,21 @@ interface OutfitCardProps {
   description: string
   className?: string
   tags?: string[]
+  style?: React.CSSProperties
 }
 
-export function OutfitCard({ image, title, description, className, tags }: OutfitCardProps) {
+export function OutfitCard({ image, title, description, className, tags, style }: OutfitCardProps) {
   const [liked, setLiked] = useState(false)
   
   return (
-    <div className={cn(
-      "group relative overflow-hidden rounded-xl bg-fashion-light",
-      "transition-all duration-300 hover:shadow-elegant",
-      className
-    )}>
+    <div 
+      style={style}
+      className={cn(
+        "group relative overflow-hidden rounded-xl bg-fashion-light",
+        "transition-all duration-300 hover:shadow-elegant",
+        className
+      )}
+    >
       <div className="aspect-[3/4] w-full overflow-hidden">
         <img
           src={image}
