@@ -32,15 +32,19 @@ export function HeroSection() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up [--delay:200ms]">
-            <Link to="/style-advice">
-              <ButtonCustom size="xl" className="group rounded-full" variant="accent">
+            <Link to="/style-advice" className="w-full sm:w-auto">
+              <ButtonCustom size="xl" className="group rounded-full w-full" variant="accent">
                 <span>Get Style Recommendations</span>
                 <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
               </ButtonCustom>
             </Link>
             
-            <Link to="/profile">
-              <ButtonCustom size="xl" variant="outline" className="group rounded-full">
+            <Link to="/profile" className="w-full sm:w-auto">
+              <ButtonCustom 
+                size="xl" 
+                className="group rounded-full w-full" 
+                variant="outline"
+              >
                 <span>Create Style Profile</span>
                 <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </ButtonCustom>
