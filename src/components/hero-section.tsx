@@ -40,7 +40,11 @@ export function HeroSection() {
             </Link>
             
             <Link to="/profile" className="w-full sm:w-auto">
-              <ButtonCustom size="xl" variant="outline" className="group rounded-full w-full" variant="outline">
+              <ButtonCustom 
+                size="xl" 
+                className="group rounded-full w-full" 
+                variant="outline"
+              >
                 <span>Create Style Profile</span>
                 <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </ButtonCustom>
