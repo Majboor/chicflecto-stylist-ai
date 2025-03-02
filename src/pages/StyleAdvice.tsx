@@ -2,8 +2,7 @@
 import { useState, useRef } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { ButtonCustom } from "@/components/ui/button-custom";
-import { UploadCloud, Camera } from "lucide-react";
+import { UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { FlashcardDeck } from "@/components/flashcard-deck";
 import { useNavigate } from "react-router-dom";
@@ -102,6 +101,12 @@ const StyleAdvice = () => {
     }
   };
 
+  const handleImageAreaClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -123,7 +128,7 @@ const StyleAdvice = () => {
                     "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-fashion-light/20 transition-colors",
                     previewUrl ? "border-fashion-accent" : "border-fashion-text/30"
                   )}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleImageAreaClick}
                 >
                   {previewUrl ? (
                     <div className="space-y-4">
@@ -157,7 +162,11 @@ const StyleAdvice = () => {
                   <button
                     type="button"
                     className={cn(buttonVariants({ variant: "subtle", className: "rounded-full" }))}
-                    onClick={resetAnalysis}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      resetAnalysis();
+                    }}
                     disabled={!selectedImage || loading}
                   >
                     Reset
@@ -165,6 +174,12 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
+                    onClick={(e) => {
+                      if (!selectedImage || loading) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }
+                    }}
                     disabled={!selectedImage || loading}
                   >
                     {loading ? "Analyzing..." : "Get Style Advice"}
@@ -179,7 +194,11 @@ const StyleAdvice = () => {
               <div className="mt-12 text-center">
                 <button
                   className={cn(buttonVariants({ variant: "outline", className: "rounded-full" }))}
-                  onClick={resetAnalysis}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resetAnalysis();
+                  }}
                 >
                   Analyze Another Outfit
                 </button>
@@ -190,7 +209,11 @@ const StyleAdvice = () => {
           <div className="mt-16 text-center">
             <button
               className={cn(buttonVariants({ variant: "subtle", className: "rounded-full" }))}
-              onClick={() => navigate("/outfits")}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate("/outfits");
+              }}
             >
               Browse Outfit Recommendations
             </button>
