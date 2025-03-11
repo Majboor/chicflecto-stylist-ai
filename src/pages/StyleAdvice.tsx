@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -463,10 +462,6 @@ const StyleAdvice = () => {
 };
 
 export default StyleAdvice;
-
-function cn(...classes: (string | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 // Import buttonVariants from ButtonCustom to use directly
 const buttonVariants = ({
