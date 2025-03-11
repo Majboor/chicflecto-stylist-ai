@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -80,7 +81,7 @@ const StyleAdvice = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amount: 1400, // 14 USD converted to cents
+          amount: 5141, // Updated amount as requested
         }),
       });
       
