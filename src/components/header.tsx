@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react"
 import { ButtonCustom } from "./ui/button-custom"
-import { Link } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import { Menu, X } from "lucide-react"
 
 const NAV_ITEMS = [
@@ -9,11 +8,14 @@ const NAV_ITEMS = [
   { name: "Style Profile", href: "/profile" },
   { name: "Outfits", href: "/outfits" },
   { name: "Inspirations", href: "/inspirations" },
+  { name: "Pricing", href: "/style-advice#pricing" },
 ]
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,6 +25,25 @@ export function Header() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault()
+    
+    // If it's a hash link on the same page
+    if (href.includes('#') && location.pathname === href.split('#')[0]) {
+      const id = href.split('#')[1]
+      const element = document.getElementById(id)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+        setIsMobileMenuOpen(false)
+        return
+      }
+    }
+    
+    // Otherwise navigate to the new page
+    navigate(href)
+    setIsMobileMenuOpen(false)
+  }
 
   return (
     <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${
@@ -42,12 +63,13 @@ export function Header() {
               <ul className="flex items-center gap-8">
                 {NAV_ITEMS.map((item) => (
                   <li key={item.name}>
-                    <Link
-                      to={item.href}
+                    <a
+                      href={item.href}
+                      onClick={(e) => handleNavClick(e, item.href)}
                       className="text-sm font-medium text-fashion-text/80 transition hover:text-fashion-text"
                     >
                       {item.name}
-                    </Link>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -55,7 +77,14 @@ export function Header() {
 
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex sm:gap-4">
-                <ButtonCustom variant="accent" className="rounded-full">
+                <ButtonCustom 
+                  variant="accent" 
+                  className="rounded-full"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/style-advice");
+                  }}
+                >
                   Get Started
                 </ButtonCustom>
               </div>
@@ -83,17 +112,25 @@ export function Header() {
         <div className="md:hidden">
           <div className="glass-effect animate-slide-down-fade space-y-1 px-4 py-4">
             {NAV_ITEMS.map((item) => (
-              <Link
+              <a
                 key={item.name}
-                to={item.href}
+                href={item.href}
                 className="block rounded-md px-3 py-2 text-base font-medium text-fashion-text hover:bg-fashion-light"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={(e) => handleNavClick(e, item.href)}
               >
                 {item.name}
-              </Link>
+              </a>
             ))}
             <div className="mt-4 pt-4 border-t border-fashion-dark/10">
-              <ButtonCustom variant="accent" className="w-full rounded-full">
+              <ButtonCustom 
+                variant="accent" 
+                className="w-full rounded-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/style-advice");
+                  setIsMobileMenuOpen(false);
+                }}
+              >
                 Get Started
               </ButtonCustom>
             </div>
