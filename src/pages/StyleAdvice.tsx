@@ -91,12 +91,13 @@ const StyleAdvice = () => {
       
       const data = await response.json();
       console.log("Payment data:", data);
-      setPaymentLink(data.payment_link);
-      if (data.payment_link) {
-        window.open(data.payment_link, "_blank");
+      
+      // Update to use the correct property name from the API response
+      if (data.payment_url) {
+        window.open(data.payment_url, "_blank");
         toast.success("Payment page opened in a new tab");
       } else {
-        throw new Error("No payment link received");
+        throw new Error("No payment URL received");
       }
     } catch (error) {
       console.error("Error creating payment:", error);
