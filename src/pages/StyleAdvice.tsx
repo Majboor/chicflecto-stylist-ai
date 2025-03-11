@@ -44,13 +44,11 @@ const StyleAdvice = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user has already used their free analysis
-    const hasUsed = localStorage.getItem("hasUsedFreeAnalysis");
+    const hasUsed = sessionStorage.getItem("hasUsedFreeAnalysis");
     if (hasUsed === "true") {
       setHasUsedFreeAnalysis(true);
     }
     
-    // Check if we need to scroll to pricing from URL
     if (window.location.hash === "#pricing" && pricingRef.current) {
       setTimeout(() => {
         pricingRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,7 +61,6 @@ const StyleAdvice = () => {
       const file = e.target.files[0];
       setSelectedImage(file);
       
-      // Create preview URL
       const fileReader = new FileReader();
       fileReader.onload = () => {
         if (typeof fileReader.result === "string") {
@@ -94,7 +91,6 @@ const StyleAdvice = () => {
       const data = await response.json();
       console.log("Payment data:", data);
       setPaymentLink(data.payment_link);
-      // Open the payment link in a new tab
       if (data.payment_link) {
         window.open(data.payment_link, "_blank");
         toast.success("Payment page opened in a new tab");
@@ -117,7 +113,6 @@ const StyleAdvice = () => {
       return;
     }
 
-    // Check if the user has already used their free analysis
     if (hasUsedFreeAnalysis) {
       setShowSubscriptionModal(true);
       return;
@@ -129,7 +124,6 @@ const StyleAdvice = () => {
     formData.append("image", selectedImage);
     
     try {
-      // Add console logs for debugging
       console.log("Sending request to API with image:", selectedImage.name);
       
       const response = await fetch("https://fashion.techrealm.online/api/style", {
@@ -137,7 +131,6 @@ const StyleAdvice = () => {
         body: formData,
       });
       
-      // Log the response status
       console.log("API response status:", response.status);
       
       if (!response.ok) {
@@ -155,8 +148,7 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      // Mark that the user has used their free analysis
-      localStorage.setItem("hasUsedFreeAnalysis", "true");
+      sessionStorage.setItem("hasUsedFreeAnalysis", "true");
       setHasUsedFreeAnalysis(true);
       
       toast.success("Analysis complete!");
@@ -306,6 +298,25 @@ const StyleAdvice = () => {
                     {loading ? "Analyzing..." : "Get Style Advice"}
                   </button>
                 </div>
+                
+                {hasUsedFreeAnalysis && (
+                  <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
+                    <p className="text-sm font-medium text-fashion-accent">
+                      You've used your free analysis. Subscribe to our Starter package for unlimited style advice.
+                    </p>
+                    <button
+                      type="button"
+                      className={cn(buttonVariants({ variant: "accent", className: "mt-2 rounded-full text-xs py-1 px-3" }))}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowSubscriptionModal(true);
+                      }}
+                    >
+                      Upgrade Now
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           ) : (
@@ -340,7 +351,6 @@ const StyleAdvice = () => {
             </button>
           </div>
 
-          {/* Pricing Section */}
           <div ref={pricingRef} id="pricing" className="mt-24 mb-12">
             <div className="text-center mb-12">
               <h2 className="fashion-heading text-3xl md:text-4xl mb-4">Choose Your Style Plan</h2>
@@ -405,7 +415,6 @@ const StyleAdvice = () => {
         </div>
       </main>
 
-      {/* Subscription Modal */}
       <Dialog open={showSubscriptionModal} onOpenChange={setShowSubscriptionModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -463,7 +472,6 @@ const StyleAdvice = () => {
 
 export default StyleAdvice;
 
-// Import buttonVariants from ButtonCustom to use directly
 const buttonVariants = ({
   variant = "default",
   size = "default",
