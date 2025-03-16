@@ -34,10 +34,10 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Reset local loading when auth loading changes
   useEffect(() => {
     if (!isLoading) {
-      // Short delay for better UX
+      // Very short delay for better UX
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 300);
+      }, 100); // Reduced from 300ms to 100ms for faster loading
       
       return () => clearTimeout(timer);
     }
@@ -50,7 +50,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     };
   }, []);
   
-  // Set a timeout to prevent infinite loading
+  // Set a timeout to prevent infinite loading - shortened for better UX
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localLoading) {
@@ -62,7 +62,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           toast.error("Authentication taking longer than expected. Please refresh if this persists.");
         }
       }
-    }, 2000); // 2 second timeout
+    }, 1000); // Reduced from 2000ms to 1000ms
     
     return () => clearTimeout(timer);
   }, [isLoading, localLoading]);
@@ -72,7 +72,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <>{children}</>;
   }
   
-  // If still in initial loading state, show a loading indicator
+  // If authentication is taking too long but we can determine this is a free trial,
+  // go ahead and show content anyway for better UX
+  if (localLoading && isLoading && firstTimeUser) {
+    console.log("First-time user detected, bypassing loading state");
+    return <>{children}</>;
+  }
+  
+  // If still in initial loading state but not for too long, show a loading indicator
   if (localLoading && isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">

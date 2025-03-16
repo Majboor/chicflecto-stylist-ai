@@ -52,7 +52,6 @@ const AuthPage = () => {
           }, 500);
           
           setRedirectTimer(timer as unknown as number);
-          return () => clearTimeout(timer);
         } else {
           setIsLoading(false);
         }
