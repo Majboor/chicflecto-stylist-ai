@@ -207,9 +207,8 @@ const StyleAdvice = () => {
     }
   };
 
-  const handleImageAreaClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleImageAreaClick = () => {
+    console.log("Image area clicked");
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -317,9 +316,7 @@ const StyleAdvice = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      if (fileInputRef.current) {
-                        fileInputRef.current.click();
-                      }
+                      handleImageAreaClick();
                     }
                   }}
                 >
