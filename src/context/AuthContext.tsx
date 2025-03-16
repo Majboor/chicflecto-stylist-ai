@@ -24,6 +24,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function getSubscriptionStatus(userId: string) {
     try {
+      // First try to get status from the database function
+      const { data: funcData, error: funcError } = await supabase.rpc(
+        'get_subscription_status',
+        { user_uuid: userId }
+      );
+      
+      if (!funcError && funcData) {
+        setSubscriptionStatus(funcData as SubscriptionStatus);
+        return funcData;
+      }
+      
+      // Fallback to direct query if the function doesn't work
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
@@ -38,13 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
-        // If subscription is expired, update it
-        if (data.status === "free_trial" && new Date(data.expires_at) < new Date()) {
-          setSubscriptionStatus("expired");
-          return "expired";
+        // Check if the subscription has status field
+        if ('status' in data) {
+          const status = data.status as SubscriptionStatus;
+          
+          // If subscription is expired, update it
+          if (status === "free_trial" && 'expires_at' in data && new Date(data.expires_at) < new Date()) {
+            setSubscriptionStatus("expired");
+            return "expired";
+          }
+          
+          setSubscriptionStatus(status);
+          return status;
+        } else {
+          // If no status field, determine based on is_active
+          const isActive = data.is_active;
+          const status = isActive ? "active" : "expired";
+          setSubscriptionStatus(status);
+          return status;
         }
-        setSubscriptionStatus(data.status as SubscriptionStatus);
-        return data.status;
       }
       return null;
     } catch (error) {

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,6 @@ const PaymentCallback = () => {
             .from("subscriptions")
             .select("*")
             .eq("user_id", user.id)
-            .eq("status", "free_trial")
             .order("created_at", { ascending: false })
             .limit(1)
             .single();
@@ -81,14 +81,13 @@ const PaymentCallback = () => {
           // Update the subscription to active
           const { error: updateError } = await supabase
             .from("subscriptions")
-            .upsert({
-              id: subscriptionId || undefined,
-              user_id: user.id,
+            .update({
               status: "active",
               payment_reference: queryParams.get("merchant_order_id"),
               expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-              free_trial_used: true
-            });
+              is_active: true
+            })
+            .eq("id", subscriptionId);
             
           if (updateError) {
             console.error("Error updating subscription:", updateError);

@@ -37,33 +37,67 @@ const buttonVariants = ({
   size = "default", 
   className = "" 
 }: { 
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "subtle" | "accent" | "glass"; 
-  size?: "default" | "sm" | "lg" | "xl" | "icon"; 
+  variant?: string; 
+  size?: string; 
   className?: string;
 }) => {
   const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
   
-  const variantStyles: Record<string, string> = {
-    default: "bg-fashion-text text-primary-foreground hover:bg-fashion-text/90",
-    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-    outline: "border border-fashion-dark/20 bg-background hover:bg-accent hover:text-accent-foreground",
-    secondary: "bg-fashion-light text-fashion-text hover:bg-fashion-light/80",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    link: "text-fashion-accent underline-offset-4 hover:underline",
-    subtle: "bg-fashion-light/50 text-fashion-text hover:bg-fashion-light",
-    accent: "bg-fashion-accent text-white hover:bg-fashion-accent/90",
-    glass: "backdrop-blur-md bg-white/20 border border-white/30 text-fashion-text hover:bg-white/30 shadow-sm",
-  };
+  let variantStyles = "";
+  switch(variant) {
+    case "default":
+      variantStyles = "bg-fashion-text text-primary-foreground hover:bg-fashion-text/90";
+      break;
+    case "destructive":
+      variantStyles = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      break;
+    case "outline":
+      variantStyles = "border border-fashion-dark/20 bg-background hover:bg-accent hover:text-accent-foreground";
+      break;
+    case "secondary":
+      variantStyles = "bg-fashion-light text-fashion-text hover:bg-fashion-light/80";
+      break;
+    case "ghost":
+      variantStyles = "hover:bg-accent hover:text-accent-foreground";
+      break;
+    case "link":
+      variantStyles = "text-fashion-accent underline-offset-4 hover:underline";
+      break;
+    case "subtle":
+      variantStyles = "bg-fashion-light/50 text-fashion-text hover:bg-fashion-light";
+      break;
+    case "accent":
+      variantStyles = "bg-fashion-accent text-white hover:bg-fashion-accent/90";
+      break;
+    case "glass":
+      variantStyles = "backdrop-blur-md bg-white/20 border border-white/30 text-fashion-text hover:bg-white/30 shadow-sm";
+      break;
+    default:
+      variantStyles = "bg-fashion-text text-primary-foreground hover:bg-fashion-text/90";
+  }
   
-  const sizeStyles: Record<string, string> = {
-    default: "h-10 px-4 py-2",
-    sm: "h-9 rounded-md px-3",
-    lg: "h-11 rounded-md px-8",
-    xl: "h-12 rounded-md px-10 text-base",
-    icon: "h-10 w-10",
-  };
+  let sizeStyles = "";
+  switch(size) {
+    case "default":
+      sizeStyles = "h-10 px-4 py-2";
+      break;
+    case "sm":
+      sizeStyles = "h-9 rounded-md px-3";
+      break;
+    case "lg":
+      sizeStyles = "h-11 rounded-md px-8";
+      break;
+    case "xl":
+      sizeStyles = "h-12 rounded-md px-10 text-base";
+      break;
+    case "icon":
+      sizeStyles = "h-10 w-10";
+      break;
+    default:
+      sizeStyles = "h-10 px-4 py-2";
+  }
   
-  return `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+  return `${baseStyles} ${variantStyles} ${sizeStyles} ${className}`;
 };
 
 const StyleAdvice = () => {
@@ -190,7 +224,8 @@ const StyleAdvice = () => {
         const { error } = await supabase
           .from("subscriptions")
           .update({ 
-            free_trial_used: true 
+            status: "free_trial",
+            is_active: true
           })
           .eq("user_id", user.id)
           .eq("status", "free_trial");
