@@ -1,12 +1,31 @@
 
 import { ButtonCustom } from "./ui/button-custom"
-import { ChevronRight, Wand2, Gem } from "lucide-react"
+import { ChevronRight, Wand2, Gem, LogIn } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
+import { useNavigate } from "react-router-dom"
+import { toast } from "@/hooks/use-toast"
 
 export function HeroSection() {
-  const { subscriptionStatus } = useAuth()
+  const { user, subscriptionStatus } = useAuth()
+  const navigate = useNavigate()
   const isPremium = subscriptionStatus === "active"
+
+  const handleAuthCheck = (path: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this feature",
+        variant: "default",
+      })
+      navigate("/auth")
+      return
+    }
+    
+    navigate(path)
+  }
 
   return (
     <section className="relative overflow-hidden pt-32 pb-16 md:pt-40 md:pb-24">
@@ -44,23 +63,33 @@ export function HeroSection() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up [--delay:200ms]">
-            <Link to="/style-advice" className="w-full sm:w-auto">
-              <ButtonCustom size="xl" className="group rounded-full w-full" variant="accent">
-                <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
+            <ButtonCustom 
+              size="xl" 
+              className="group rounded-full w-full sm:w-auto" 
+              variant="accent"
+              onClick={(e) => handleAuthCheck("/style-advice", e)}
+            >
+              <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
+              {user ? (
                 <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-              </ButtonCustom>
-            </Link>
+              ) : (
+                <LogIn className="ml-2 h-4 w-4 transition-transform" />
+              )}
+            </ButtonCustom>
             
-            <Link to="/profile" className="w-full sm:w-auto">
-              <ButtonCustom 
-                size="xl" 
-                className="group rounded-full w-full" 
-                variant="outline"
-              >
-                <span>Create Style Profile</span>
+            <ButtonCustom 
+              size="xl" 
+              className="group rounded-full w-full sm:w-auto" 
+              variant="outline"
+              onClick={(e) => handleAuthCheck("/profile", e)}
+            >
+              <span>Create Style Profile</span>
+              {user ? (
                 <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </ButtonCustom>
-            </Link>
+              ) : (
+                <LogIn className="ml-1 h-4 w-4" />
+              )}
+            </ButtonCustom>
           </div>
           
           {isPremium && (
