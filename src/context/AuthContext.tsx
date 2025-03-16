@@ -242,12 +242,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      console.log("Signing out user...");
       setIsLoading(true);
+      
+      // Clear state first to prevent UI flicker
+      setUser(null);
+      setSession(null);
+      setSubscriptionStatus(null);
+      
+      // Then perform the actual sign out
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error during sign out:", error);
+        toast.error("Failed to sign out. Please try again.");
+        // Try to recover the session if sign out failed
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } else {
+        console.log("Successfully signed out");
+        toast.success("Successfully signed out");
+        // Force a reload to clear any cached state
+        window.location.href = "/";
+      }
     } catch (error) {
-      console.error("Error during sign out:", error);
-      toast.error("Failed to sign out. Please try again.");
+      console.error("Exception during sign out:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }

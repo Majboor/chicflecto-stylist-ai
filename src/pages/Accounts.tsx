@@ -57,12 +57,15 @@ export default function Accounts() {
   }, [refreshSubscriptionStatus, authLoading]);
 
   const handleSignOut = async () => {
+    if (actionLoading) return; // Prevent double clicks
+    
     setActionLoading(true);
     try {
+      console.log("User requested sign out");
       await signOut();
-      navigate("/auth");
+      // The redirect is now handled in the signOut function
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("Error in handleSignOut:", error);
       toast.error("Failed to sign out. Please try again.");
     } finally {
       setActionLoading(false);
