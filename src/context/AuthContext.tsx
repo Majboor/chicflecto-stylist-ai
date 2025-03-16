@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending";
 
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   async function getSubscriptionStatus(userId: string) {
     try {
@@ -42,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle(); // Changed from single() to maybeSingle() to handle case where no subscription exists
+        .maybeSingle();
 
       if (error) {
         console.log("Error fetching subscription:", error);
@@ -92,67 +94,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshSubscriptionStatus() {
     if (user) {
       setIsLoading(true);
-      await getSubscriptionStatus(user.id);
-      setIsLoading(false);
+      try {
+        await getSubscriptionStatus(user.id);
+      } catch (error) {
+        console.error("Error refreshing subscription status:", error);
+        toast.error("Failed to refresh subscription status");
+      } finally {
+        setIsLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    let isMounted = true; // Add a mounted flag to prevent state updates after unmount
+    console.log("AuthContext useEffect running");
+    let isMounted = true;
     
     async function loadUserData() {
       if (!isMounted) return;
+      
+      console.log("Loading user data...");
       setIsLoading(true);
       
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get the session directly to avoid race conditions
+        const { data, error } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await getSubscriptionStatus(session.user.id);
+        if (error) {
+          console.error("Error getting session:", error);
+          if (isMounted) {
+            setSession(null);
+            setUser(null);
+            setSubscriptionStatus(null);
+          }
+        } else {
+          const { session } = data;
+          
+          if (isMounted) {
+            setSession(session);
+            setUser(session?.user ?? null);
+            
+            if (session?.user) {
+              await getSubscriptionStatus(session.user.id);
+            } else {
+              setSubscriptionStatus(null);
+            }
+          }
         }
-        
-        // Always set loading to false after processing
-        if (isMounted) setIsLoading(false);
       } catch (error) {
-        console.log("Error in loadUserData:", error);
-        // Set states to null in case of error
+        console.error("Exception in loadUserData:", error);
         if (isMounted) {
           setSession(null);
           setUser(null);
           setSubscriptionStatus(null);
+        }
+      } finally {
+        // Always mark auth as initialized and not loading when done
+        if (isMounted) {
+          setAuthInitialized(true);
           setIsLoading(false);
         }
+        console.log("User data loading complete");
       }
     }
     
     loadUserData();
     
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
+        console.log("Auth state changed:", event);
+        
         if (!isMounted) return;
         
         // Update session and user immediately
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         
-        // Set loading true only if we need to fetch subscription status
-        if (session?.user) {
-          setIsLoading(true);
-          await getSubscriptionStatus(session.user.id);
-          if (isMounted) setIsLoading(false);
-        } else {
-          // If no user, just set subscription to null and loading to false
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (newSession?.user) {
+            setIsLoading(true);
+            await getSubscriptionStatus(newSession.user.id);
+            if (isMounted) setIsLoading(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // Clear subscription status on sign out
           setSubscriptionStatus(null);
+        }
+        
+        // Always mark auth as initialized and not loading when done
+        if (isMounted) {
+          setAuthInitialized(true);
+          setIsLoading(false);
         }
       }
     );
     
     return () => {
+      console.log("Cleaning up auth context");
       isMounted = false;
       subscription.unsubscribe();
     };
@@ -161,9 +201,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
     } catch (error) {
-      console.log("Error during sign out:", error);
+      console.error("Error during sign out:", error);
+      toast.error("Failed to sign out. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -178,7 +220,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSubscriptionStatus,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {authInitialized || !isLoading ? children : (
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
+          <p className="text-fashion-text">Initializing authentication...</p>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

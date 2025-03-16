@@ -12,40 +12,80 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
 
   useEffect(() => {
-    setIsLoading(true);
-    
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        // Wait a moment before navigating to ensure any other data is loaded
-        setTimeout(() => {
-          navigate("/");
+    const handleAuthSession = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setSession(null);
           setIsLoading(false);
-        }, 500);
-      } else {
+          return;
+        }
+        
+        setSession(session);
+        
+        if (session) {
+          // Show a message that we're about to redirect
+          toast.success("Successfully signed in!");
+          
+          // Start a countdown for redirect
+          let secondsLeft = 3;
+          const timer = window.setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft <= 0) {
+              clearInterval(timer);
+              navigate("/");
+              setIsLoading(false);
+            } else {
+              setRedirectTimer(secondsLeft);
+            }
+          }, 1000);
+          
+          return () => clearInterval(timer);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Unexpected error in auth flow:", error);
+        setSession(null);
         setIsLoading(false);
       }
-    }).catch(error => {
-      console.error("Error getting session:", error);
-      setIsLoading(false);
-    });
-
+    };
+    
+    handleAuthSession();
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
+        
         if (session) {
           toast.success("Successfully signed in!");
-          // Wait a moment before navigating to ensure any other data is loaded
-          setTimeout(() => {
-            navigate("/");
-          }, 500);
+          // Start a countdown for redirect
+          let secondsLeft = 3;
+          const timer = window.setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft <= 0) {
+              clearInterval(timer);
+              navigate("/");
+            } else {
+              setRedirectTimer(secondsLeft);
+            }
+          }, 1000);
+          
+          return () => clearInterval(timer);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (
@@ -63,8 +103,13 @@ const AuthPage = () => {
           
           <div className="glass-card p-8 rounded-xl">
             {isLoading ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
+              <div className="flex flex-col justify-center items-center h-32">
+                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
+                {redirectTimer !== null && (
+                  <p className="text-fashion-text/70 mt-2">
+                    Redirecting in {redirectTimer} seconds...
+                  </p>
+                )}
               </div>
             ) : (
               <Auth

@@ -3,7 +3,7 @@ import { ButtonCustom } from "./ui/button-custom"
 import { ArrowRight, LogIn } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 export function CTASection() {
@@ -18,6 +18,17 @@ export function CTASection() {
     }
   }, [isLoading]);
   
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
+    if (localLoading) {
+      const timer = setTimeout(() => {
+        setLocalLoading(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [localLoading]);
+  
   const handleAuthCheck = (e: React.MouseEvent) => {
     e.preventDefault();
     
@@ -28,22 +39,15 @@ export function CTASection() {
       toast({
         title: "Loading",
         description: "Please wait while we check your account status",
-        variant: "default",
       });
       
-      // Set a timeout to clear the loading state in case it gets stuck
-      setTimeout(() => {
-        setLocalLoading(false);
-      }, 3000);
       return;
     }
     
     if (!user) {
-      setLocalLoading(false);
       toast({
         title: "Authentication Required",
         description: "Please sign in to access this feature",
-        variant: "default",
       });
       navigate("/auth");
       return;
@@ -69,7 +73,7 @@ export function CTASection() {
           <div className="mt-10">
             <ButtonCustom 
               size="xl" 
-              className="group rounded-full animate-pulse" 
+              className="group rounded-full" 
               variant="accent"
               onClick={handleAuthCheck}
               disabled={localLoading || isLoading}
