@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -13,8 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
-// Define the same subscription status type locally to ensure it matches AuthContext
+// Define the subscription status type locally to ensure it matches AuthContext
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
+
+// Create a type guard to verify subscription status
+function isSubscriptionStatus(status: string | null, targetStatus: SubscriptionStatus): boolean {
+  return status === targetStatus;
+}
 
 interface StyleResponse {
   outfit_analysis: {
@@ -149,7 +153,7 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (subscriptionStatus !== "active") {
+    if (!isSubscriptionStatus(subscriptionStatus, "active")) {
       setShowPricingAlert(true);
       pricingRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
@@ -185,8 +189,7 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      // Check if subscription status is free_trial with type safety
-      if (subscriptionStatus && subscriptionStatus === "free_trial") {
+      if (isSubscriptionStatus(subscriptionStatus, "free_trial")) {
         try {
           const { error } = await supabase
             .from("subscriptions")
@@ -380,13 +383,13 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    disabled={!selectedImage || loading || authLoading || subscriptionStatus !== "active"}
+                    disabled={!selectedImage || loading || authLoading || !isSubscriptionStatus(subscriptionStatus, "active")}
                   >
                     {loading ? "Analyzing..." : (subscriptionStatus === "active" ? "Get Style Advice" : "Subscribe for Analysis")}
                   </button>
                 </div>
                 
-                {selectedImage && subscriptionStatus !== "active" && (
+                {selectedImage && !isSubscriptionStatus(subscriptionStatus, "active") && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
                       Subscribe to our Starter package to analyze this outfit and get style advice.
