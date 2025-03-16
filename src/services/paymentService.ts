@@ -40,7 +40,7 @@ export async function createPayment(userId: string, amount = 5141): Promise<Paym
       paymentUrl: data.payment_url,
       paymentId: data.id
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Exception creating payment:", error);
     toast.error("An unexpected error occurred while processing your payment request.");
     return { success: false, message: error.message };

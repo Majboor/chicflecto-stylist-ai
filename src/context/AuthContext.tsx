@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq("status", FREE_TRIAL);
         }
         
-        // Ensure we're setting the correct type
+        // Ensure we're setting the correct type by casting
         const statusValue = data as SubscriptionStatus;
         setSubscriptionStatus(statusValue);
         return statusValue;
@@ -278,5 +278,3 @@ export function useAuth() {
   }
   return context;
 }
-
-export { FREE_TRIAL, ACTIVE };
