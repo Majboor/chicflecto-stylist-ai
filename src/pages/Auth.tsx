@@ -12,8 +12,7 @@ import { clearSubscriptionCache } from "@/services/subscriptionService";
 const AuthPage = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false); // Start with false to avoid unnecessary loading state
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Immediately check if the user is already signed in
@@ -27,7 +26,6 @@ const AuthPage = () => {
           console.error("Session check error:", error);
           setSession(null);
           setAuthError("Failed to check authentication status.");
-          setIsLoading(false);
           return;
         }
         
@@ -48,14 +46,10 @@ const AuthPage = () => {
           
           // Immediately navigate without delay
           navigate("/");
-        } else {
-          // User is not signed in, show the auth UI right away
-          setIsLoading(false);
         }
       } catch (error) {
         console.error("Auth check error:", error);
         setAuthError("An unexpected error occurred. Please try again.");
-        setIsLoading(false);
       }
     };
     
@@ -86,38 +80,28 @@ const AuthPage = () => {
       }
     );
 
-    // Very short timeout as a fallback to ensure we don't stay in loading forever
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.log("Auth page: Forcing loading to end after timeout");
-        setIsLoading(false);
-      }
-    }, 300); // Very short timeout
-
     return () => {
       if (subscription) subscription.unsubscribe();
-      if (redirectTimer) clearTimeout(redirectTimer);
-      clearTimeout(timeoutId);
     };
-  }, [navigate, redirectTimer]);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-grow pt-24 pb-16">
+      <main className="flex-grow pt-12 pb-16"> {/* Reduced padding to prevent scrolling */}
         <div className="container mx-auto px-6 max-w-md">
-          <div className="mb-10 text-center">
-            <h1 className="fashion-heading text-3xl md:text-4xl mb-4">Welcome to StylistAI</h1>
+          <div className="mb-6"> {/* Reduced margin to prevent scrolling */}
+            <h1 className="fashion-heading text-3xl mb-2">Welcome to StylistAI</h1> {/* Reduced size and margin */}
             <p className="fashion-subheading">
               Sign in or create an account to get personalized style advice
             </p>
           </div>
           
-          <div className="glass-card p-8 rounded-xl">
+          <div className="glass-card p-6 rounded-xl"> {/* Reduced padding */}
             {isLoading ? (
-              <div className="flex flex-col justify-center items-center h-32">
-                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
+              <div className="flex flex-col justify-center items-center h-24"> {/* Reduced height */}
+                <div className="animate-spin h-6 w-6 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
                 <p className="text-fashion-text/70 mt-2">
                   Loading...
                 </p>
@@ -125,7 +109,7 @@ const AuthPage = () => {
             ) : (
               <>
                 {authError && (
-                  <div className="mb-4 p-4 border border-red-200 bg-red-50 text-red-600 rounded-md">
+                  <div className="mb-4 p-3 border border-red-200 bg-red-50 text-red-600 rounded-md"> {/* Reduced padding */}
                     {authError}
                   </div>
                 )}

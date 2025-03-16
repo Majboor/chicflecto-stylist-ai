@@ -12,8 +12,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus, refreshSubscriptionStatus } = useAuth();
-  const [localLoading, setLocalLoading] = useState(false); // Start with false to avoid excessive "checking" state
-  const [authCheckTimeout, setAuthCheckTimeout] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false); // Start with false
   
   // Get first-time user status from localStorage
   const firstTimeUser = isFirstLogin();
@@ -33,48 +32,24 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   
   // Only set loading state if auth is loading and we have no user yet
   useEffect(() => {
-    if (isLoading && !user) {
-      // Only show loading for a very short time
+    if (isLoading && !user && !firstTimeUser) {
+      // Only set loading if not a first-time user
       setLocalLoading(true);
       
-      // Very short delay for better UX
+      // Short timeout to quickly remove loading state if it's taking too long
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 50); // Extremely short delay
+      }, 300);
       
       return () => clearTimeout(timer);
     } else {
-      // If we have a user or loading is done, immediately remove loading state
+      // Immediately clear loading state
       setLocalLoading(false);
     }
-  }, [isLoading, user]);
-  
-  // Handle component unmount
-  useEffect(() => {
-    return () => {
-      setLocalLoading(false);
-    };
-  }, []);
-  
-  // Set a timeout to prevent infinite loading - shortened for better UX
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localLoading) {
-        setLocalLoading(false);
-        setAuthCheckTimeout(true);
-        
-        // If still loading after timeout, show toast to user
-        if (isLoading && !user) {
-          toast.error("Authentication taking longer than expected. Please refresh if this persists.");
-        }
-      }
-    }, 500); // Very short timeout
-    
-    return () => clearTimeout(timer);
-  }, [isLoading, localLoading, user]);
+  }, [isLoading, user, firstTimeUser]);
   
   // If loading timeout occurred but user is defined, still show the content
-  if (authCheckTimeout && user) {
+  if (user) {
     return <>{children}</>;
   }
   
@@ -84,22 +59,17 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <>{children}</>;
   }
   
-  // If we have a user but auth is still finalizing, show content anyway
-  if (user && isLoading) {
-    return <>{children}</>;
-  }
-  
-  // If still in initial loading state but not for too long, show a loading indicator
-  if (localLoading && isLoading && !user) {
+  // If still in initial loading state, show a loading indicator
+  if (localLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
+        <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
         <p className="text-fashion-text/70 mt-2">Loading your profile...</p>
         {(isPremium || isFreeTrial) && (
           <div className="flex items-center gap-2 mt-4">
             <Gem className="h-5 w-5 text-purple-500" />
             <span className="text-sm font-medium bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
-              {isPremium ? "Loading Premium Content" : "Free Trial Active"}
+              {isPremium ? "Premium Content" : "Free Trial Active"}
             </span>
           </div>
         )}
