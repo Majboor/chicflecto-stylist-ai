@@ -6,8 +6,8 @@ import { CTASection } from "@/components/cta-section"
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background font-sans">
-      <main>
+    <div className="min-h-screen w-full bg-background font-sans">
+      <main className="w-full">
         <HeroSection />
         <FeaturesSection />
         <OutfitShowcase />

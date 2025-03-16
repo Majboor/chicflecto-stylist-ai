@@ -20,40 +20,44 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Header />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/style-advice" element={
-            <ProtectedRoute>
-              <StyleAdvice />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          <Route path="/outfits" element={
-            <ProtectedRoute>
-              <Outfits />
-            </ProtectedRoute>
-          } />
-          <Route path="/inspirations" element={
-            <ProtectedRoute>
-              <Inspirations />
-            </ProtectedRoute>
-          } />
-          <Route path="/accounts" element={
-            <ProtectedRoute>
-              <Accounts />
-            </ProtectedRoute>
-          } />
-          <Route path="/payment-callback" element={<PaymentCallback />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Footer />
-        <Toaster />
+        <div className="flex flex-col min-h-screen w-full">
+          <Header />
+          <main className="flex-grow w-full">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/style-advice" element={
+                <ProtectedRoute>
+                  <StyleAdvice />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/outfits" element={
+                <ProtectedRoute>
+                  <Outfits />
+                </ProtectedRoute>
+              } />
+              <Route path="/inspirations" element={
+                <ProtectedRoute>
+                  <Inspirations />
+                </ProtectedRoute>
+              } />
+              <Route path="/accounts" element={
+                <ProtectedRoute>
+                  <Accounts />
+                </ProtectedRoute>
+              } />
+              <Route path="/payment-callback" element={<PaymentCallback />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+          <Footer />
+          <Toaster />
+        </div>
       </BrowserRouter>
     </AuthProvider>
   );
