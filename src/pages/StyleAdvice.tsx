@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -14,10 +13,8 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { markFreeTrialAsUsed } from "@/services/subscriptionService";
 
-// Define the subscription status type locally to ensure it matches AuthContext
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
 
-// Create a type guard to verify subscription status
 function isSubscriptionStatus(status: string | null, targetStatus: SubscriptionStatus): boolean {
   return status === targetStatus;
 }
@@ -53,13 +50,20 @@ const StyleAdvice = () => {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showPricingAlert, setShowPricingAlert] = useState(false);
   const [freeTrialUsed, setFreeTrialUsed] = useState(false);
+  const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, subscriptionStatus, isLoading: authLoading, refreshSubscriptionStatus } = useAuth();
   
-  // Add timeout ID to clean up navigation timers
   const navigationTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!authLoading) {
+      setAuthCheckCompleted(true);
+      console.log("Auth check completed, subscription status:", subscriptionStatus);
+    }
+  }, [authLoading, subscriptionStatus]);
 
   useEffect(() => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
@@ -69,7 +73,6 @@ const StyleAdvice = () => {
       }, 500);
     }
     
-    // Clean up navigation timer on unmount
     return () => {
       if (navigationTimerRef.current) {
         window.clearTimeout(navigationTimerRef.current);
@@ -114,7 +117,6 @@ const StyleAdvice = () => {
       };
       fileReader.readAsDataURL(file);
       
-      // Mark free trial as used when image is uploaded
       if (user && isSubscriptionStatus(subscriptionStatus, "free_trial") && !freeTrialUsed) {
         try {
           console.log("Marking free trial as used on image upload");
@@ -125,7 +127,6 @@ const StyleAdvice = () => {
             localStorage.setItem("fashion_app_free_trial_used", "true");
             toast.success("You've used your free trial upload!");
             
-            // Refresh subscription status to reflect changes
             await refreshSubscriptionStatus();
           }
         } catch (error) {
@@ -179,14 +180,17 @@ const StyleAdvice = () => {
       return;
     }
 
+    if (!authCheckCompleted) {
+      toast.error("Authentication check still in progress. Please wait.");
+      return;
+    }
+
     if (!user) {
       toast.error("Please log in to use this feature");
-      // Clear any previous navigation timers
       if (navigationTimerRef.current) {
         window.clearTimeout(navigationTimerRef.current);
       }
       
-      // Set a timeout to handle stuck state
       navigationTimerRef.current = window.setTimeout(() => {
         setLoading(false);
       }, 5000);
@@ -195,9 +199,15 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (!isSubscriptionStatus(subscriptionStatus, "active")) {
+    if (authLoading) {
+      toast.error("Still checking your subscription status. Please try again in a moment.");
+      return;
+    }
+
+    if (!isSubscriptionStatus(subscriptionStatus, "active") && !isSubscriptionStatus(subscriptionStatus, "free_trial")) {
       setShowPricingAlert(true);
       pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+      toast.error("You need an active subscription to analyze your outfit.");
       return;
     }
     
@@ -318,12 +328,10 @@ const StyleAdvice = () => {
         <button
           className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
           onClick={() => {
-            // Clear any existing navigation timer
             if (navigationTimerRef.current) {
               window.clearTimeout(navigationTimerRef.current);
             }
             
-            // Add fallback timeout to prevent stuck state
             navigationTimerRef.current = window.setTimeout(() => {
               console.log("Navigation fallback triggered");
             }, 3000);
@@ -338,6 +346,30 @@ const StyleAdvice = () => {
     }
     
     return null;
+  };
+
+  const getButtonText = () => {
+    if (loading) {
+      return "Analyzing...";
+    }
+    
+    if (authLoading) {
+      return "Checking...";
+    }
+    
+    if (isSubscriptionStatus(subscriptionStatus, "active") || isSubscriptionStatus(subscriptionStatus, "free_trial")) {
+      return "Get Style Advice";
+    }
+    
+    return "Subscribe for Analysis";
+  };
+
+  const isButtonDisabled = () => {
+    return !selectedImage || 
+           loading || 
+           authLoading || 
+           (!isSubscriptionStatus(subscriptionStatus, "active") && 
+            !isSubscriptionStatus(subscriptionStatus, "free_trial"));
   };
 
   return (
@@ -418,13 +450,13 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    disabled={!selectedImage || loading || authLoading || !isSubscriptionStatus(subscriptionStatus, "active")}
+                    disabled={isButtonDisabled()}
                   >
-                    {loading ? "Analyzing..." : (subscriptionStatus === "active" ? "Get Style Advice" : "Subscribe for Analysis")}
+                    {getButtonText()}
                   </button>
                 </div>
                 
-                {selectedImage && !isSubscriptionStatus(subscriptionStatus, "active") && (
+                {selectedImage && !isSubscriptionStatus(subscriptionStatus, "active") && !isSubscriptionStatus(subscriptionStatus, "free_trial") && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
                       Subscribe to our Starter package to analyze this outfit and get style advice.
@@ -469,12 +501,10 @@ const StyleAdvice = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Clear any navigation timers
                 if (navigationTimerRef.current) {
                   window.clearTimeout(navigationTimerRef.current);
                 }
                 
-                // Set loading state to false before navigation to avoid stuck buttons
                 setLoading(false);
                 
                 navigate("/outfits");
