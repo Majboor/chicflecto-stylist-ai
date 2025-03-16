@@ -66,10 +66,11 @@ const AuthPage = () => {
             localStorage.removeItem("fashion_app_free_trial_used");
             // Clear subscription cache to ensure fresh data
             clearSubscriptionCache(newSession.user.id);
+            
+            // Immediate redirect without showing any "checking" state
+            toast.success("Successfully signed in!");
+            navigate("/");
           }
-          
-          toast.success("Successfully signed in!");
-          navigate("/");
         }
       }
     );
@@ -83,18 +84,18 @@ const AuthPage = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
-      <main className="flex-1 py-8">
+      <main className="flex-1 pt-2 pb-4">
         <div className="container mx-auto px-4 max-w-md">
-          <div className="mb-4">
-            <h1 className="fashion-heading text-2xl mb-1">Welcome to StylistAI</h1>
+          <div className="mb-2">
+            <h1 className="fashion-heading text-2xl mb-0.5">Welcome to StylistAI</h1>
             <p className="fashion-subheading text-sm">
               Sign in or create an account to get personalized style advice
             </p>
           </div>
           
-          <div className="glass-card p-4 rounded-xl">
+          <div className="glass-card p-3 rounded-xl">
             {authError && (
-              <div className="mb-3 p-2 border border-red-200 bg-red-50 text-red-600 rounded-md text-sm">
+              <div className="mb-2 p-2 border border-red-200 bg-red-50 text-red-600 rounded-md text-sm">
                 {authError}
               </div>
             )}
@@ -116,6 +117,22 @@ const AuthPage = () => {
                   },
                   input: {
                     borderRadius: '0.5rem',
+                  },
+                  // Reduce spacing in the form to prevent scrolling
+                  container: {
+                    gap: '0.5rem'
+                  },
+                  message: {
+                    margin: '0.25rem 0'
+                  },
+                  anchor: {
+                    margin: '0.25rem 0'
+                  },
+                  divider: {
+                    margin: '0.5rem 0'
+                  },
+                  label: {
+                    margin: '0.25rem 0'
                   }
                 }
               }}
