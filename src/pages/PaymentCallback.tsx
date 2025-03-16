@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,48 +19,21 @@ const PaymentCallback = () => {
         const queryParams = new URLSearchParams(location.search);
         const success = queryParams.get("success") === "true";
         const txnResponseCode = queryParams.get("txn_response_code");
-        const message = queryParams.get("data.message");
-        
-        console.log("Payment callback received:", {
-          success,
-          txnResponseCode,
-          message,
-          queryParams: Object.fromEntries(queryParams.entries())
-        });
         
         setPaymentSuccessful(success && txnResponseCode === "APPROVED");
         
         if (!user) {
-          console.error("No authenticated user found");
           toast.error("Please log in to complete the payment process");
           navigate("/auth");
           return;
         }
         
         if (success && txnResponseCode === "APPROVED") {
-          // Get the active subscription
-          const { data: subscriptionData, error: subscriptionError } = await supabase
-            .from("subscriptions")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          if (subscriptionError) {
-            console.error("Error fetching subscription:", subscriptionError);
-            toast.error("Could not process your subscription");
-            return;
-          }
-          
-          const subscriptionId = subscriptionData?.id;
-          
-          // Record the payment transaction
+          // First record the payment transaction for audit purposes
           const { error: transactionError } = await supabase
             .from("payment_transactions")
             .insert({
               user_id: user.id,
-              subscription_id: subscriptionId,
               amount: queryParams.get("amount_cents") 
                 ? parseInt(queryParams.get("amount_cents")!) / 100 
                 : 14,
@@ -70,63 +44,72 @@ const PaymentCallback = () => {
             });
             
           if (transactionError) {
-            console.error("Error recording transaction:", transactionError);
-            toast.error("Payment recorded but subscription update failed");
-            return;
+            console.error("Transaction recording error:", transactionError);
+            // Continue anyway, subscription is more important
           }
           
-          // Clear any local storage trial usage data when upgrading to paid subscription
+          // Clear any local storage trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
           
-          // If we don't have a subscription yet, create one
-          if (!subscriptionId) {
-            const { data: newSubscription, error: createError } = await supabase
-              .from("subscriptions")
-              .insert({
-                user_id: user.id,
-                status: "active",
-                payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                is_active: true,
-                free_trial_used: false // Reset free_trial_used flag on payment
-              })
-              .select()
-              .single();
-              
-            if (createError) {
-              console.error("Error creating subscription:", createError);
-              toast.error("Payment completed but couldn't create subscription");
-              return;
-            }
-          } else {
-            // Update the existing subscription to active
+          // Get existing subscription or create new one
+          const { data: subscription, error: subscriptionError } = await supabase
+            .from("subscriptions")
+            .select("id")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (subscriptionError) {
+            console.error("Subscription fetch error:", subscriptionError);
+          }
+          
+          if (subscription?.id) {
+            // Update existing subscription
             const { error: updateError } = await supabase
               .from("subscriptions")
               .update({
                 status: "active",
                 payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 is_active: true,
-                free_trial_used: false // Reset free_trial_used flag on payment
+                free_trial_used: false
               })
-              .eq("id", subscriptionId);
+              .eq("id", subscription.id);
               
             if (updateError) {
-              console.error("Error updating subscription:", updateError);
+              console.error("Subscription update error:", updateError);
               toast.error("Payment completed but subscription update failed");
-              return;
+            }
+          } else {
+            // Create new subscription
+            const { error: createError } = await supabase
+              .from("subscriptions")
+              .insert({
+                user_id: user.id,
+                status: "active",
+                payment_reference: queryParams.get("merchant_order_id"),
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                is_active: true,
+                free_trial_used: false
+              });
+              
+            if (createError) {
+              console.error("Subscription creation error:", createError);
+              toast.error("Payment completed but subscription creation failed");
             }
           }
           
+          // Refresh subscription status to update UI
           await refreshSubscriptionStatus();
           toast.success("Payment successful! Your subscription is now active.");
           
-          // Redirect to accounts page after 3 seconds
+          // Redirect to accounts page after short delay
           setTimeout(() => {
             navigate("/accounts");
-          }, 3000);
-        } else {
-          // Record the failed payment
+          }, 2000);
+        } else if (!paymentSuccessful) {
+          // Record failed payment if user is logged in
           if (user) {
             await supabase
               .from("payment_transactions")
@@ -145,7 +128,7 @@ const PaymentCallback = () => {
           toast.error("Payment was not successful. Please try again.");
         }
       } catch (error) {
-        console.error("Error processing payment callback:", error);
+        console.error("Payment callback error:", error);
         toast.error("An error occurred while processing your payment");
       } finally {
         setIsProcessing(false);
@@ -176,7 +159,7 @@ const PaymentCallback = () => {
                   Your subscription has been activated. You now have unlimited access to all features.
                 </p>
                 <p className="text-sm text-fashion-text/50 mt-4">
-                  Redirecting to your account page in 3 seconds...
+                  Redirecting to your account page...
                 </p>
               </div>
             ) : (

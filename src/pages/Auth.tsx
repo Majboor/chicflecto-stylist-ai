@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Auth } from "@supabase/auth-ui-react";
@@ -14,75 +15,52 @@ const AuthPage = () => {
   const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
 
   useEffect(() => {
-    const handleAuthSession = async () => {
+    // Check if already authenticated and redirect if needed
+    const checkSession = async () => {
       setIsLoading(true);
       
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error getting session:", error);
+          console.error("Session check error:", error);
           setSession(null);
           setIsLoading(false);
           return;
         }
         
-        setSession(session);
+        setSession(data.session);
         
-        if (session) {
-          // Clear any stale trial usage data when signing in to a new session
+        if (data.session) {
+          // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
           
-          // Show a message that we're about to redirect
-          toast.success("Successfully signed in!");
-          
-          // Start a countdown for redirect
-          let secondsLeft = 2; // Reduced from 3 to 2 for faster redirection
-          const timer = window.setInterval(() => {
-            secondsLeft -= 1;
-            if (secondsLeft <= 0) {
-              clearInterval(timer);
-              navigate("/");
-              setIsLoading(false);
-            } else {
-              setRedirectTimer(secondsLeft);
-            }
-          }, 1000);
-          
-          return () => clearInterval(timer);
+          toast.success("You're signed in!");
+          navigate("/");
         } else {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error("Unexpected error in auth flow:", error);
-        setSession(null);
+        console.error("Auth check error:", error);
         setIsLoading(false);
       }
     };
     
-    handleAuthSession();
+    checkSession();
     
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         
-        if (session) {
+        if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
           
           toast.success("Successfully signed in!");
           
-          // Start a countdown for redirect
-          let secondsLeft = 2; // Reduced from 3 to 2
-          const timer = window.setInterval(() => {
-            secondsLeft -= 1;
-            if (secondsLeft <= 0) {
-              clearInterval(timer);
-              navigate("/");
-            } else {
-              setRedirectTimer(secondsLeft);
-            }
-          }, 1000);
+          // Quick redirect for better UX
+          navigate("/");
         }
       }
     );
@@ -90,7 +68,7 @@ const AuthPage = () => {
     // Ensure we don't get stuck in loading state
     const timeoutId = setTimeout(() => {
       setIsLoading(false);
-    }, 3000);
+    }, 1500);
 
     return () => {
       subscription.unsubscribe();
@@ -114,10 +92,10 @@ const AuthPage = () => {
           <div className="glass-card p-8 rounded-xl">
             {isLoading ? (
               <div className="flex flex-col justify-center items-center h-32">
-                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
+                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
                 {redirectTimer !== null && (
                   <p className="text-fashion-text/70 mt-2">
-                    Redirecting in {redirectTimer} seconds...
+                    Redirecting...
                   </p>
                 )}
               </div>
@@ -134,7 +112,6 @@ const AuthPage = () => {
                       }
                     },
                   },
-                  // Custom styling through className
                   style: {
                     button: {
                       borderRadius: '0.5rem',
