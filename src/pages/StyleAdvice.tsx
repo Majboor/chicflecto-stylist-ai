@@ -2,12 +2,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { UploadCloud, X, Check, CreditCard } from "lucide-react";
+import { UploadCloud, X, Check, CreditCard, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { FlashcardDeck } from "@/components/flashcard-deck";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StyleResponse {
   outfit_analysis: {
@@ -36,20 +38,14 @@ const StyleAdvice = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [styleResponse, setStyleResponse] = useState<StyleResponse | null>(null);
-  const [hasUsedFreeAnalysis, setHasUsedFreeAnalysis] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-  const [paymentLink, setPaymentLink] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user, subscriptionStatus, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    const hasUsed = sessionStorage.getItem("hasUsedFreeAnalysis");
-    if (hasUsed === "true") {
-      setHasUsedFreeAnalysis(true);
-    }
-    
     if (window.location.hash === "#pricing" && pricingRef.current) {
       setTimeout(() => {
         pricingRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,26 +69,28 @@ const StyleAdvice = () => {
   };
 
   const initiatePayment = async () => {
+    if (!user) {
+      toast.error("Please log in to subscribe");
+      navigate("/auth");
+      return;
+    }
+
     setIsPaymentLoading(true);
     try {
-      const response = await fetch("https://pay.techrealm.pk/create-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: 5141, // Updated amount as requested
-        }),
+      // Use our Supabase Edge Function to initiate payment
+      const { data, error } = await supabase.functions.invoke("payment-handler", {
+        body: {
+          amount: 5141,
+          redirection_url: window.location.origin + "/payment-callback"
+        }
       });
       
-      if (!response.ok) {
-        throw new Error("Payment initialization failed");
+      if (error) {
+        throw new Error(error.message || "Payment initialization failed");
       }
       
-      const data = await response.json();
       console.log("Payment data:", data);
       
-      // Update to use the correct property name from the API response
       if (data.payment_url) {
         window.open(data.payment_url, "_blank");
         toast.success("Payment page opened in a new tab");
@@ -115,7 +113,15 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (hasUsedFreeAnalysis) {
+    // Check if user is logged in
+    if (!user) {
+      toast.error("Please log in to use this feature");
+      navigate("/auth");
+      return;
+    }
+
+    // Check subscription status
+    if (subscriptionStatus === "expired") {
       setShowSubscriptionModal(true);
       return;
     }
@@ -150,8 +156,19 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      sessionStorage.setItem("hasUsedFreeAnalysis", "true");
-      setHasUsedFreeAnalysis(true);
+      // If this is a free trial and they haven't upgraded yet, mark as used
+      if (subscriptionStatus === "free_trial") {
+        // Update the subscription to mark free trial as used
+        const { error } = await supabase
+          .from("subscriptions")
+          .update({ free_trial_used: true })
+          .eq("user_id", user.id)
+          .eq("status", "free_trial");
+          
+        if (error) {
+          console.error("Error updating subscription:", error);
+        }
+      }
       
       toast.success("Analysis complete!");
     } catch (error) {
@@ -222,6 +239,35 @@ const StyleAdvice = () => {
     }
   ];
 
+  // Show login button if not authenticated
+  const renderAuthButton = () => {
+    if (authLoading) {
+      return (
+        <button
+          className={cn(buttonVariants({ variant: "subtle", className: "rounded-full" }))}
+          disabled
+        >
+          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+          Loading...
+        </button>
+      );
+    }
+    
+    if (!user) {
+      return (
+        <button
+          className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
+          onClick={() => navigate("/auth")}
+        >
+          <LogIn className="h-4 w-4 mr-2" />
+          Sign In
+        </button>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -233,6 +279,7 @@ const StyleAdvice = () => {
             <p className="fashion-subheading max-w-2xl mx-auto">
               Upload a photo of your outfit and get personalized style advice from our AI stylist
             </p>
+            {renderAuthButton()}
           </div>
           
           {!styleResponse ? (
@@ -295,13 +342,13 @@ const StyleAdvice = () => {
                         e.stopPropagation();
                       }
                     }}
-                    disabled={!selectedImage || loading}
+                    disabled={!selectedImage || loading || authLoading}
                   >
                     {loading ? "Analyzing..." : "Get Style Advice"}
                   </button>
                 </div>
                 
-                {hasUsedFreeAnalysis && (
+                {subscriptionStatus === "expired" && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
                       You've used your free analysis. Subscribe to our Starter package for unlimited style advice.
@@ -399,7 +446,7 @@ const StyleAdvice = () => {
                         initiatePayment();
                       }
                     }}
-                    disabled={tier.name === "Pro" || tier.name === "Free"}
+                    disabled={tier.name === "Pro" || tier.name === "Free" || isPaymentLoading}
                     className={cn(
                       buttonVariants({ 
                         variant: tier.popular ? "accent" : "outline", 
