@@ -2,19 +2,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Gem, CheckCircle, Calendar, AlertCircle, CreditCard, LogOut } from "lucide-react";
+import { Gem, CheckCircle, Calendar, AlertCircle, CreditCard, LogOut, RefreshCw } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonCustom } from "@/components/ui/button-custom";
-import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function Accounts() {
   const { user, subscriptionStatus, signOut, refreshSubscriptionStatus } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
   const isPremium = subscriptionStatus === "active";
   const isTrialActive = subscriptionStatus === "free_trial";
   const isExpired = subscriptionStatus === "expired";
+  const isPending = subscriptionStatus === "pending";
   
   // Refresh subscription status when page loads
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function Accounts() {
       navigate("/auth");
     } catch (error) {
       console.error("Error signing out:", error);
+      toast.error("Failed to sign out. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -36,15 +39,39 @@ export default function Accounts() {
   const handleUpgrade = () => {
     navigate("/style-advice#pricing");
   };
+  
+  const handleRefreshStatus = async () => {
+    setRefreshing(true);
+    try {
+      await refreshSubscriptionStatus();
+      toast.success("Subscription status updated");
+    } catch (error) {
+      console.error("Error refreshing subscription status:", error);
+      toast.error("Failed to refresh status. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-32 md:py-40">
       <div className="max-w-3xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold mb-2">Your Account</h1>
-          <p className="text-fashion-text/70">
-            Manage your account details and subscription
-          </p>
+        <div className="mb-10 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Your Account</h1>
+            <p className="text-fashion-text/70">
+              Manage your account details and subscription
+            </p>
+          </div>
+          <ButtonCustom 
+            variant="outline" 
+            onClick={handleRefreshStatus} 
+            disabled={refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh Status'}
+          </ButtonCustom>
         </div>
 
         <div className="grid gap-8">
@@ -65,9 +92,14 @@ export default function Accounts() {
               </div>
             </CardContent>
             <CardFooter>
-              <ButtonCustom variant="subtle" onClick={handleSignOut} className="w-full sm:w-auto">
+              <ButtonCustom 
+                variant="subtle" 
+                onClick={handleSignOut} 
+                className="w-full sm:w-auto"
+                disabled={loading}
+              >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                {loading ? 'Signing out...' : 'Sign Out'}
               </ButtonCustom>
             </CardFooter>
           </Card>
@@ -88,6 +120,11 @@ export default function Accounts() {
                     Trial Active
                   </Badge>
                 )}
+                {isPending && (
+                  <Badge variant="outline" className="text-yellow-500 border-yellow-200">
+                    Pending
+                  </Badge>
+                )}
                 {isExpired && (
                   <Badge variant="outline" className="text-red-500 border-red-200">
                     Expired
@@ -102,7 +139,9 @@ export default function Accounts() {
               <CardDescription>
                 {isPremium 
                   ? "You're enjoying premium features and benefits" 
-                  : "Upgrade to premium for exclusive features"}
+                  : isPending
+                    ? "Your payment is being processed"
+                    : "Upgrade to premium for exclusive features"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
@@ -118,9 +157,11 @@ export default function Accounts() {
                     <p className="text-sm text-fashion-text/70">
                       {isPremium 
                         ? "Premium Subscription" 
-                        : isTrialActive 
-                          ? "Free Trial" 
-                          : "Basic (Free)"}
+                        : isPending
+                          ? "Payment Processing"
+                          : isTrialActive 
+                            ? "Free Trial" 
+                            : "Basic (Free)"}
                     </p>
                   </div>
                 </div>
@@ -136,9 +177,11 @@ export default function Accounts() {
                     <p className="text-sm text-fashion-text/70">
                       {isPremium 
                         ? "Active" 
-                        : isTrialActive 
-                          ? "Trial Period" 
-                          : "Not Subscribed"}
+                        : isPending
+                          ? "Payment in Progress"
+                          : isTrialActive 
+                            ? "Trial Period" 
+                            : "Not Subscribed"}
                     </p>
                   </div>
                 </div>
@@ -179,6 +222,21 @@ export default function Accounts() {
                   <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 border-0 text-white px-4 py-2">
                     Premium Active
                   </Badge>
+                </div>
+              ) : isPending ? (
+                <div className="w-full text-center">
+                  <p className="text-sm text-yellow-600 mb-2">
+                    Your payment is being processed. Please wait a moment.
+                  </p>
+                  <ButtonCustom 
+                    variant="outline" 
+                    onClick={handleRefreshStatus}
+                    disabled={refreshing}
+                    className="text-yellow-600 border-yellow-300"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    Check Payment Status
+                  </ButtonCustom>
                 </div>
               ) : (
                 <ButtonCustom 

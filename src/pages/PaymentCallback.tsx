@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -47,9 +45,9 @@ const PaymentCallback = () => {
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
             
-          if (subscriptionError && subscriptionError.code !== "PGRST116") {
+          if (subscriptionError) {
             console.error("Error fetching subscription:", subscriptionError);
             toast.error("Could not process your subscription");
             return;
@@ -78,25 +76,51 @@ const PaymentCallback = () => {
             return;
           }
           
-          // Update the subscription to active
-          const { error: updateError } = await supabase
-            .from("subscriptions")
-            .update({
-              status: "active",
-              payment_reference: queryParams.get("merchant_order_id"),
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-              is_active: true
-            })
-            .eq("id", subscriptionId);
-            
-          if (updateError) {
-            console.error("Error updating subscription:", updateError);
-            toast.error("Payment completed but subscription update failed");
-            return;
+          // If we don't have a subscription yet, create one
+          if (!subscriptionId) {
+            const { data: newSubscription, error: createError } = await supabase
+              .from("subscriptions")
+              .insert({
+                user_id: user.id,
+                status: "active",
+                payment_reference: queryParams.get("merchant_order_id"),
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+                is_active: true
+              })
+              .select()
+              .single();
+              
+            if (createError) {
+              console.error("Error creating subscription:", createError);
+              toast.error("Payment completed but couldn't create subscription");
+              return;
+            }
+          } else {
+            // Update the existing subscription to active
+            const { error: updateError } = await supabase
+              .from("subscriptions")
+              .update({
+                status: "active",
+                payment_reference: queryParams.get("merchant_order_id"),
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+                is_active: true
+              })
+              .eq("id", subscriptionId);
+              
+            if (updateError) {
+              console.error("Error updating subscription:", updateError);
+              toast.error("Payment completed but subscription update failed");
+              return;
+            }
           }
           
           await refreshSubscriptionStatus();
           toast.success("Payment successful! Your subscription is now active.");
+          
+          // Redirect to accounts page after 3 seconds
+          setTimeout(() => {
+            navigate("/accounts");
+          }, 3000);
         } else {
           // Record the failed payment
           if (user) {
@@ -129,8 +153,6 @@ const PaymentCallback = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      
       <main className="flex-grow pt-24 pb-16">
         <div className="container mx-auto px-6 max-w-md">
           <div className="glass-card p-8 rounded-xl text-center">
@@ -149,12 +171,9 @@ const PaymentCallback = () => {
                 <p className="text-fashion-text/70">
                   Your subscription has been activated. You now have unlimited access to all features.
                 </p>
-                <button
-                  className="mt-6 px-6 py-2 bg-fashion-accent text-white rounded-full hover:bg-fashion-accent/90 transition-colors"
-                  onClick={() => navigate("/style-advice")}
-                >
-                  Start Using Premium Features
-                </button>
+                <p className="text-sm text-fashion-text/50 mt-4">
+                  Redirecting to your account page in 3 seconds...
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -176,8 +195,6 @@ const PaymentCallback = () => {
           </div>
         </div>
       </main>
-      
-      <Footer />
     </div>
   );
 };
