@@ -4,6 +4,7 @@ import { ButtonCustom } from "./ui/button-custom"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { Menu, X, Gem, User } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const NAV_ITEMS = [
   { name: "Home", href: "/" },
@@ -19,6 +20,7 @@ export function Header() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, subscriptionStatus } = useAuth()
+  const isMobile = useIsMobile()
   
   const isPremium = subscriptionStatus === "active"
 
@@ -89,7 +91,7 @@ export function Header() {
             </nav>
 
             <div className="flex items-center gap-4">
-              <div className="hidden sm:flex sm:gap-4">
+              <div className="flex gap-4">
                 {user ? (
                   <ButtonCustom 
                     variant="subtle" 
@@ -100,13 +102,13 @@ export function Header() {
                     }}
                   >
                     <User className="h-4 w-4" />
-                    <span>Account</span>
+                    <span className={isMobile ? "hidden" : "block"}>Account</span>
                     {isPremium && <Gem className="h-4 w-4 text-purple-500" />}
                   </ButtonCustom>
                 ) : (
                   <ButtonCustom 
                     variant="accent" 
-                    className="rounded-full"
+                    className="rounded-full hidden sm:flex"
                     onClick={(e) => {
                       e.preventDefault();
                       navigate("/style-advice");
