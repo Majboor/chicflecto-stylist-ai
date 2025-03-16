@@ -7,20 +7,27 @@ import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 export function HeroSection() {
-  const { user, subscriptionStatus, isLoading } = useAuth()
+  const { user, subscriptionStatus, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [localLoading, setLocalLoading] = useState(false)
   const isPremium = subscriptionStatus === "active"
   
+  // Reset local loading state when component unmounts
+  useEffect(() => {
+    return () => {
+      setLocalLoading(false);
+    };
+  }, []);
+  
   // Reset local loading state when auth loading changes
   useEffect(() => {
-    if (!isLoading) {
+    if (!authLoading) {
       // Short timeout to ensure we have the latest auth state
       setTimeout(() => {
         setLocalLoading(false);
       }, 100);
     }
-  }, [isLoading]);
+  }, [authLoading]);
 
   // Set a timeout to prevent infinite loading
   useEffect(() => {
@@ -39,7 +46,7 @@ export function HeroSection() {
     // Set local loading to ensure we don't get stuck
     setLocalLoading(true)
     
-    if (isLoading) {
+    if (authLoading) {
       toast.loading("Please wait while we check your account status", {
         duration: 2000,
         onAutoClose: () => setLocalLoading(false)
@@ -49,13 +56,13 @@ export function HeroSection() {
     
     if (!user) {
       toast.error("Please sign in to access this feature");
+      setLocalLoading(false); // Important: Reset loading before navigating
       navigate("/auth");
-      setLocalLoading(false);
       return
     }
     
+    setLocalLoading(false); // Important: Reset loading before navigating
     navigate(path);
-    setLocalLoading(false);
   }
 
   return (

@@ -30,11 +30,20 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     if (!isLoading) {
       // Short delay for better UX
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 100);
+      }, 300);
+      
+      return () => clearTimeout(timer);
     }
   }, [isLoading]);
+  
+  // Handle component unmount
+  useEffect(() => {
+    return () => {
+      setLocalLoading(false);
+    };
+  }, []);
   
   // Set a timeout to prevent infinite loading
   useEffect(() => {
