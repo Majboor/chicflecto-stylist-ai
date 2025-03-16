@@ -1,8 +1,13 @@
 
 import { ButtonCustom } from "./ui/button-custom"
 import { ArrowRight } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useAuth } from "@/context/AuthContext"
 
 export function CTASection() {
+  const { user } = useAuth();
+  const targetPath = user ? "/style-advice" : "/auth";
+  
   return (
     <section className="relative py-16 overflow-hidden">
       {/* Background decorative elements */}
@@ -17,10 +22,12 @@ export function CTASection() {
           </p>
           
           <div className="mt-10">
-            <ButtonCustom size="xl" className="group rounded-full animate-pulse" variant="accent">
-              <span>Get Started Now</span>
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </ButtonCustom>
+            <Link to={targetPath}>
+              <ButtonCustom size="xl" className="group rounded-full animate-pulse" variant="accent">
+                <span>Get Started Now</span>
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </ButtonCustom>
+            </Link>
           </div>
           
           <p className="mt-6 text-sm text-fashion-text/60">

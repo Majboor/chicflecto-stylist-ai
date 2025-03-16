@@ -1,19 +1,26 @@
 
 import { useState, useEffect } from "react"
 import { ButtonCustom } from "./ui/button-custom"
-import { Link } from "react-router-dom"
-import { Menu, X } from "lucide-react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import { Menu, X, Gem, User } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 
 const NAV_ITEMS = [
   { name: "Home", href: "/" },
   { name: "Style Profile", href: "/profile" },
   { name: "Outfits", href: "/outfits" },
   { name: "Inspirations", href: "/inspirations" },
+  { name: "Pricing", href: "/style-advice#pricing" },
 ]
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user, subscriptionStatus } = useAuth()
+  
+  const isPremium = subscriptionStatus === "active"
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,6 +30,25 @@ export function Header() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault()
+    
+    // If it's a hash link on the same page
+    if (href.includes('#') && location.pathname === href.split('#')[0]) {
+      const id = href.split('#')[1]
+      const element = document.getElementById(id)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+        setIsMobileMenuOpen(false)
+        return
+      }
+    }
+    
+    // Otherwise navigate to the new page
+    navigate(href)
+    setIsMobileMenuOpen(false)
+  }
 
   return (
     <header className={`fixed top-0 z-50 w-full transition-all duration-300 ${
@@ -42,22 +68,53 @@ export function Header() {
               <ul className="flex items-center gap-8">
                 {NAV_ITEMS.map((item) => (
                   <li key={item.name}>
-                    <Link
-                      to={item.href}
+                    <a
+                      href={item.href}
+                      onClick={(e) => handleNavClick(e, item.href)}
                       className="text-sm font-medium text-fashion-text/80 transition hover:text-fashion-text"
                     >
                       {item.name}
-                    </Link>
+                    </a>
                   </li>
                 ))}
+                {isPremium && (
+                  <li>
+                    <div className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs font-medium">
+                      <Gem className="h-3 w-3" />
+                      <span>Premium</span>
+                    </div>
+                  </li>
+                )}
               </ul>
             </nav>
 
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex sm:gap-4">
-                <ButtonCustom variant="accent" className="rounded-full">
-                  Get Started
-                </ButtonCustom>
+                {user ? (
+                  <ButtonCustom 
+                    variant="subtle" 
+                    className="rounded-full flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/accounts");
+                    }}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Account</span>
+                    {isPremium && <Gem className="h-4 w-4 text-purple-500" />}
+                  </ButtonCustom>
+                ) : (
+                  <ButtonCustom 
+                    variant="accent" 
+                    className="rounded-full"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/style-advice");
+                    }}
+                  >
+                    Get Started
+                  </ButtonCustom>
+                )}
               </div>
 
               <div className="block md:hidden">
@@ -83,19 +140,70 @@ export function Header() {
         <div className="md:hidden">
           <div className="glass-effect animate-slide-down-fade space-y-1 px-4 py-4">
             {NAV_ITEMS.map((item) => (
-              <Link
+              <a
                 key={item.name}
-                to={item.href}
+                href={item.href}
                 className="block rounded-md px-3 py-2 text-base font-medium text-fashion-text hover:bg-fashion-light"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={(e) => handleNavClick(e, item.href)}
               >
                 {item.name}
-              </Link>
+              </a>
             ))}
+            {user && (
+              <a
+                href="/accounts"
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-fashion-text hover:bg-fashion-light"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/accounts");
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <User className="h-4 w-4" />
+                <span>Account</span>
+                {isPremium && <Gem className="h-4 w-4 text-purple-500" />}
+              </a>
+            )}
+            {isPremium && (
+              <div className="flex items-center gap-1 px-3 py-2 rounded-md">
+                <Gem className="h-4 w-4 text-purple-500" />
+                <span className="text-base font-medium text-fashion-text">Premium Account</span>
+              </div>
+            )}
             <div className="mt-4 pt-4 border-t border-fashion-dark/10">
-              <ButtonCustom variant="accent" className="w-full rounded-full">
-                Get Started
-              </ButtonCustom>
+              {user ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2">
+                  {isPremium ? (
+                    <div className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs font-medium">
+                      <span>Premium Active</span>
+                    </div>
+                  ) : (
+                    <ButtonCustom 
+                      variant="accent" 
+                      className="w-full rounded-full"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate("/style-advice");
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      Upgrade to Premium
+                    </ButtonCustom>
+                  )}
+                </div>
+              ) : (
+                <ButtonCustom 
+                  variant="accent" 
+                  className="w-full rounded-full"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/style-advice");
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  Get Started
+                </ButtonCustom>
+              )}
             </div>
           </div>
         </div>
