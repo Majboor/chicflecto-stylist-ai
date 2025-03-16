@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
-type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired";
+type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending";
 
 interface AuthContextType {
   session: Session | null;
