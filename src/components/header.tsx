@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"
 import { ButtonCustom } from "./ui/button-custom"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { Menu, X, Gem } from "lucide-react"
+import { Menu, X, Gem, User } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 
 const NAV_ITEMS = [
@@ -90,11 +90,19 @@ export function Header() {
 
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex sm:gap-4">
-                {isPremium ? (
-                  <div className="flex items-center">
-                    <span className="mr-2 text-sm text-fashion-text/80">Premium Active</span>
-                    <Gem className="h-4 w-4 text-purple-500" />
-                  </div>
+                {user ? (
+                  <ButtonCustom 
+                    variant="subtle" 
+                    className="rounded-full flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/accounts");
+                    }}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Account</span>
+                    {isPremium && <Gem className="h-4 w-4 text-purple-500" />}
+                  </ButtonCustom>
                 ) : (
                   <ButtonCustom 
                     variant="accent" 
@@ -141,6 +149,21 @@ export function Header() {
                 {item.name}
               </a>
             ))}
+            {user && (
+              <a
+                href="/accounts"
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-fashion-text hover:bg-fashion-light"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/accounts");
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <User className="h-4 w-4" />
+                <span>Account</span>
+                {isPremium && <Gem className="h-4 w-4 text-purple-500" />}
+              </a>
+            )}
             {isPremium && (
               <div className="flex items-center gap-1 px-3 py-2 rounded-md">
                 <Gem className="h-4 w-4 text-purple-500" />
@@ -148,11 +171,25 @@ export function Header() {
               </div>
             )}
             <div className="mt-4 pt-4 border-t border-fashion-dark/10">
-              {isPremium ? (
+              {user ? (
                 <div className="flex items-center justify-center gap-2 w-full py-2">
-                  <div className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs font-medium">
-                    <span>Premium Active</span>
-                  </div>
+                  {isPremium ? (
+                    <div className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs font-medium">
+                      <span>Premium Active</span>
+                    </div>
+                  ) : (
+                    <ButtonCustom 
+                      variant="accent" 
+                      className="w-full rounded-full"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate("/style-advice");
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      Upgrade to Premium
+                    </ButtonCustom>
+                  )}
                 </div>
               ) : (
                 <ButtonCustom 
