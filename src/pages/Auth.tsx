@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { toast } from "sonner";
-import { clearSubscriptionCache } from "@/services/subscriptionService";
+import { clearSubscriptionCache, markFirstLoginComplete } from "@/services/subscriptionService";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -54,13 +54,16 @@ const AuthPage = () => {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event);
         setSession(session);
         
         if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          // Clear any stale trial usage data
-          localStorage.removeItem("fashion_app_free_trial_used");
-          // Clear subscription cache to ensure fresh data
+          // For brand new users, set proper localStorage state
           if (event === 'SIGNED_IN') {
+            console.log("Setting up first-time user state");
+            localStorage.setItem("fashion_app_first_login", "true");
+            localStorage.removeItem("fashion_app_free_trial_used");
+            // Clear subscription cache to ensure fresh data
             clearSubscriptionCache(session.user.id);
           }
           

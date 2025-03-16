@@ -6,6 +6,7 @@ import { toast } from "sonner";
 const TRIAL_USAGE_KEY = "fashion_app_free_trial_used";
 const SUBSCRIPTION_CACHE_KEY = "fashion_app_subscription_cache";
 const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
+const FIRST_LOGIN_KEY = "fashion_app_first_login";
 
 // Types
 export type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
@@ -33,12 +34,29 @@ interface CachedSubscription {
 let subscriptionCache: Record<string, CachedSubscription> = {};
 
 /**
+ * Check if this is user's first login
+ */
+export function isFirstLogin(): boolean {
+  return localStorage.getItem(FIRST_LOGIN_KEY) !== "false";
+}
+
+/**
+ * Mark that user has logged in before
+ */
+export function markFirstLoginComplete(): void {
+  localStorage.setItem(FIRST_LOGIN_KEY, "false");
+}
+
+/**
  * Retrieves a user's subscription record with caching
  */
 export async function getUserSubscription(userId: string): Promise<UserSubscription | null> {
-  // Check cache first
+  console.log("Getting user subscription for:", userId);
+  
+  // Check cache first for faster response
   const cached = subscriptionCache[userId];
   if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+    console.log("Using cached subscription data");
     return cached.subscription;
   }
   
@@ -54,11 +72,20 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
       return null;
     }
     
+    console.log("DB subscription data:", data);
+    
     // Update cache
     subscriptionCache[userId] = {
       subscription: data,
       timestamp: Date.now()
     };
+    
+    // If this is first login and no subscription record exists, create one
+    if (!data && isFirstLogin()) {
+      console.log("First login detected, creating default subscription");
+      const newSubscription = await createDefaultUserSubscription(userId);
+      return newSubscription;
+    }
     
     return data;
   } catch (error) {
@@ -68,29 +95,79 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
 }
 
 /**
+ * Creates a default subscription for new users
+ */
+export async function createDefaultUserSubscription(userId: string): Promise<UserSubscription | null> {
+  try {
+    console.log("Creating default user subscription for:", userId);
+    const defaultSub = {
+      user_id: userId,
+      is_subscribed: false,
+      free_trial_used: false
+    };
+    
+    const { data, error } = await supabase
+      .from("user_subscriptions")
+      .insert(defaultSub)
+      .select()
+      .single();
+        
+    if (error) {
+      console.error("Error creating default user subscription:", error);
+      return null;
+    } else {
+      console.log("Successfully created default user subscription with free trial");
+      
+      // Update cache
+      subscriptionCache[userId] = {
+        subscription: data,
+        timestamp: Date.now()
+      };
+      
+      return data;
+    }
+  } catch (error) {
+    console.error("Exception creating default user subscription:", error);
+    return null;
+  }
+}
+
+/**
  * Clears the subscription cache for a user
  */
 export function clearSubscriptionCache(userId?: string) {
   if (userId) {
+    console.log("Clearing subscription cache for:", userId);
     delete subscriptionCache[userId];
   } else {
+    console.log("Clearing all subscription caches");
     subscriptionCache = {};
   }
 }
 
 /**
- * Checks if a user has an active subscription
+ * Checks if a user has an active subscription - prioritize localStorage for immediate response
  */
 export async function isUserSubscribed(userId: string): Promise<boolean> {
+  // First check localStorage for instant response
+  if (localStorage.getItem(FIRST_LOGIN_KEY) === null) {
+    console.log("First login detected in isUserSubscribed");
+    localStorage.setItem(FIRST_LOGIN_KEY, "true");
+    return false;
+  }
+  
   const subscription = await getUserSubscription(userId);
   return subscription?.is_subscribed || false;
 }
 
 /**
- * Checks if a user has used their free trial
+ * Checks if a user has used their free trial - prioritize localStorage
  */
 export function hasUsedFreeTrial(): boolean {
-  return localStorage.getItem(TRIAL_USAGE_KEY) === "true";
+  // Prioritize localStorage for immediate user experience
+  const localTrialUsed = localStorage.getItem(TRIAL_USAGE_KEY) === "true";
+  console.log("Free trial used (localStorage):", localTrialUsed);
+  return localTrialUsed;
 }
 
 /**
@@ -101,6 +178,7 @@ export async function markFreeTrialAsUsed(userId: string): Promise<boolean> {
   
   // Update localStorage immediately for fast UI response
   localStorage.setItem(TRIAL_USAGE_KEY, "true");
+  localStorage.setItem(FIRST_LOGIN_KEY, "false");
   
   try {
     // Then update the database
@@ -136,6 +214,10 @@ export async function activateUserSubscription(
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + durationDays);
+    
+    // Update localStorage immediately for fast UI response
+    localStorage.setItem(TRIAL_USAGE_KEY, "true");
+    localStorage.setItem(FIRST_LOGIN_KEY, "false");
     
     const { error } = await supabase
       .from("user_subscriptions")

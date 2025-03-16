@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Gem } from "lucide-react";
 import { toast } from "sonner";
-import { ACTIVE, FREE_TRIAL } from "@/services/subscriptionService";
+import { ACTIVE, FREE_TRIAL, isFirstLogin } from "@/services/subscriptionService";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,8 +13,18 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
+  
+  // Give first-time users free trial status automatically
+  const firstTimeUser = isFirstLogin();
   const isPremium = subscriptionStatus === ACTIVE;
-  const isFreeTrial = subscriptionStatus === FREE_TRIAL;
+  const isFreeTrial = subscriptionStatus === FREE_TRIAL || firstTimeUser;
+  
+  useEffect(() => {
+    // If this is a first-time user, log it
+    if (firstTimeUser && user) {
+      console.log("First-time user detected in ProtectedRoute, giving free trial access");
+    }
+  }, [firstTimeUser, user]);
   
   // Reset local loading when auth loading changes
   useEffect(() => {
