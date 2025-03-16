@@ -10,7 +10,9 @@ import {
   isUserSubscribed, 
   hasUsedFreeTrial,
   getUserSubscription,
-  clearSubscriptionCache
+  clearSubscriptionCache,
+  isFirstLogin,
+  markFirstLoginComplete
 } from "@/services/subscriptionService";
 
 interface AuthContextType {
@@ -35,6 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getSubscriptionStatus = useCallback(async (userId: string): Promise<SubscriptionStatus> => {
     try {
       console.log("Getting subscription status for user:", userId);
+      
+      // Check if this is a first-time user
+      const firstTimeUser = isFirstLogin();
+      if (firstTimeUser) {
+        console.log("First-time user detected in AuthContext, giving free trial access");
+        setSubscriptionStatus(FREE_TRIAL);
+        return FREE_TRIAL;
+      }
       
       // Get the subscription directly from the user_subscriptions table
       const subscription = await getUserSubscription(userId);

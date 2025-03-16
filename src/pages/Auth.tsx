@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { toast } from "sonner";
-import { clearSubscriptionCache, markFirstLoginComplete } from "@/services/subscriptionService";
+import { clearSubscriptionCache } from "@/services/subscriptionService";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -35,6 +35,10 @@ const AuthPage = () => {
         if (data.session) {
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
+          // For truly new users coming in, make sure we mark them as first-time
+          if (!localStorage.getItem("fashion_app_first_login")) {
+            localStorage.setItem("fashion_app_first_login", "true");
+          }
           // Clear subscription cache to ensure fresh data
           clearSubscriptionCache(data.session.user.id);
           

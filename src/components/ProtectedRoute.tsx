@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Gem } from "lucide-react";
 import { toast } from "sonner";
-import { ACTIVE, FREE_TRIAL, isFirstLogin } from "@/services/subscriptionService";
+import { ACTIVE, FREE_TRIAL, isFirstLogin, markFirstLoginComplete } from "@/services/subscriptionService";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,15 +14,17 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
   
-  // Give first-time users free trial status automatically
+  // Get first-time user status from localStorage
   const firstTimeUser = isFirstLogin();
   const isPremium = subscriptionStatus === ACTIVE;
+  // For first-time users, we force the free trial status regardless of DB setting
   const isFreeTrial = subscriptionStatus === FREE_TRIAL || firstTimeUser;
   
   useEffect(() => {
     // If this is a first-time user, log it
     if (firstTimeUser && user) {
       console.log("First-time user detected in ProtectedRoute, giving free trial access");
+      // We don't mark first login complete here - that only happens when they use the trial
     }
   }, [firstTimeUser, user]);
   

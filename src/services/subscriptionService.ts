@@ -37,6 +37,7 @@ let subscriptionCache: Record<string, CachedSubscription> = {};
  * Check if this is user's first login
  */
 export function isFirstLogin(): boolean {
+  // For new users, the key won't exist yet, so if it's null or not 'false', it's their first login
   return localStorage.getItem(FIRST_LOGIN_KEY) !== "false";
 }
 
@@ -163,8 +164,16 @@ export async function isUserSubscribed(userId: string): Promise<boolean> {
 /**
  * Checks if a user has used their free trial - prioritize localStorage
  */
-export function hasUsedFreeTrial(): boolean {
-  // Prioritize localStorage for immediate user experience
+export function hasUsedFreeTrial(userId?: string): boolean {
+  // Check database first
+  if (userId) {
+    const cached = subscriptionCache[userId];
+    if (cached && cached.subscription) {
+      return cached.subscription.free_trial_used;
+    }
+  }
+  
+  // Fallback to localStorage
   const localTrialUsed = localStorage.getItem(TRIAL_USAGE_KEY) === "true";
   console.log("Free trial used (localStorage):", localTrialUsed);
   return localTrialUsed;
