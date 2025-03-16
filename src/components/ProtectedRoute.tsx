@@ -14,6 +14,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [localLoading, setLocalLoading] = useState(true);
   const isPremium = subscriptionStatus === "active";
   
+  console.log("ProtectedRoute state:", { 
+    user: user?.id, 
+    isLoading, 
+    subscriptionStatus,
+    localLoading
+  });
+  
   // Reset local loading when auth loading changes
   useEffect(() => {
     if (!isLoading) {

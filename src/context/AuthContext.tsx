@@ -26,18 +26,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function getSubscriptionStatus(userId: string) {
     try {
+      console.log("Fetching subscription status for user:", userId);
+      
       // First try to get status from the database function
       const { data: funcData, error: funcError } = await supabase.rpc(
         'get_subscription_status',
         { user_uuid: userId }
       );
       
+      console.log("RPC result:", { data: funcData, error: funcError });
+      
       if (!funcError && funcData) {
+        console.log("Setting subscription status from RPC:", funcData);
         setSubscriptionStatus(funcData as SubscriptionStatus);
         return funcData;
       }
       
       // Fallback to direct query if the function doesn't work
+      console.log("RPC failed or returned no data, falling back to direct query");
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
@@ -46,8 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .limit(1)
         .maybeSingle();
 
+      console.log("Direct query result:", { data, error });
+
       if (error) {
         console.error("Error fetching subscription:", error);
+        // Set default status to prevent getting stuck
         setSubscriptionStatus(null);
         return null;
       }
@@ -66,26 +75,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           // If subscription is expired, update it
           if (status === "free_trial" && subscription.expires_at && new Date(subscription.expires_at) < new Date()) {
+            console.log("Free trial expired, updating status to expired");
             setSubscriptionStatus("expired");
             return "expired";
           }
           
+          console.log("Setting subscription status from status field:", status);
           setSubscriptionStatus(status);
           return status;
         } else {
           // If no status field, determine based on is_active
           const isActive = subscription.is_active;
           const status = isActive ? "active" : "expired";
+          console.log("Setting subscription status based on is_active:", status);
           setSubscriptionStatus(status);
           return status;
         }
       } else {
         // No subscription found, set to null
-        setSubscriptionStatus(null);
+        console.log("No subscription found, setting status to null");
+        
+        // If no subscription found, create a default entry
+        try {
+          const { error: insertError } = await supabase
+            .from("subscriptions")
+            .insert({
+              user_id: userId,
+              status: "free_trial",
+              is_active: true,
+              free_trial_used: false
+            });
+            
+          if (insertError) {
+            console.error("Error creating default subscription:", insertError);
+            setSubscriptionStatus(null);
+          } else {
+            console.log("Created default free_trial subscription");
+            setSubscriptionStatus("free_trial");
+            return "free_trial";
+          }
+        } catch (insertErr) {
+          console.error("Exception creating default subscription:", insertErr);
+          setSubscriptionStatus(null);
+        }
+        
         return null;
       }
     } catch (error) {
       console.error("Error in getSubscriptionStatus:", error);
+      // Set default status to prevent getting stuck
       setSubscriptionStatus(null);
       return null;
     }
