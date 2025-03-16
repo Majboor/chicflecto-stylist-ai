@@ -36,19 +36,13 @@ export function CTASection() {
     setLocalLoading(true);
     
     if (isLoading) {
-      toast({
-        title: "Loading",
-        description: "Please wait while we check your account status",
-      });
+      toast.loading("Please wait while we check your account status");
       
       return;
     }
     
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to access this feature",
-      });
+      toast.error("Please sign in to access this feature");
       navigate("/auth");
       return;
     }

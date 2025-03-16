@@ -78,7 +78,7 @@ const AuthPage = () => {
             }
           }, 1000);
           
-          return () => clearInterval(timer);
+          // Fix: Don't return a function here, just clear the timer if component unmounts
         }
       }
     );
