@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -69,7 +68,6 @@ const StyleAdvice = () => {
     }
   }, [styleResponse, subscriptionStatus]);
 
-  // New effect to scroll to pricing when image is uploaded
   useEffect(() => {
     if (selectedImage && pricingRef.current && subscriptionStatus !== "active") {
       setTimeout(() => {
@@ -147,14 +145,12 @@ const StyleAdvice = () => {
       return;
     }
 
-    // If user is on free tier or trial, just scroll to pricing
     if (subscriptionStatus !== "active") {
       setShowPricingAlert(true);
       pricingRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     
-    // Only active subscribers can analyze images
     setLoading(true);
     
     const formData = new FormData();

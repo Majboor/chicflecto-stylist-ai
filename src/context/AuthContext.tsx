@@ -4,13 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
-type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending";
+type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   signOut: () => Promise<void>;
-  subscriptionStatus: SubscriptionStatus | null;
+  subscriptionStatus: SubscriptionStatus;
   isLoading: boolean;
   refreshSubscriptionStatus: () => Promise<void>;
 }
