@@ -57,6 +57,9 @@ const StyleAdvice = () => {
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, subscriptionStatus, isLoading: authLoading, refreshSubscriptionStatus } = useAuth();
+  
+  // Add timeout ID to clean up navigation timers
+  const navigationTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
@@ -65,6 +68,13 @@ const StyleAdvice = () => {
         setShowPricingAlert(true);
       }, 500);
     }
+    
+    // Clean up navigation timer on unmount
+    return () => {
+      if (navigationTimerRef.current) {
+        window.clearTimeout(navigationTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -171,6 +181,16 @@ const StyleAdvice = () => {
 
     if (!user) {
       toast.error("Please log in to use this feature");
+      // Clear any previous navigation timers
+      if (navigationTimerRef.current) {
+        window.clearTimeout(navigationTimerRef.current);
+      }
+      
+      // Set a timeout to handle stuck state
+      navigationTimerRef.current = window.setTimeout(() => {
+        setLoading(false);
+      }, 5000);
+      
       navigate("/auth");
       return;
     }
@@ -297,7 +317,19 @@ const StyleAdvice = () => {
       return (
         <button
           className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-          onClick={() => navigate("/auth")}
+          onClick={() => {
+            // Clear any existing navigation timer
+            if (navigationTimerRef.current) {
+              window.clearTimeout(navigationTimerRef.current);
+            }
+            
+            // Add fallback timeout to prevent stuck state
+            navigationTimerRef.current = window.setTimeout(() => {
+              console.log("Navigation fallback triggered");
+            }, 3000);
+            
+            navigate("/auth");
+          }}
         >
           <LogIn className="h-4 w-4 mr-2" />
           Sign In
@@ -437,6 +469,14 @@ const StyleAdvice = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                // Clear any navigation timers
+                if (navigationTimerRef.current) {
+                  window.clearTimeout(navigationTimerRef.current);
+                }
+                
+                // Set loading state to false before navigation to avoid stuck buttons
+                setLoading(false);
+                
                 navigate("/outfits");
               }}
             >
