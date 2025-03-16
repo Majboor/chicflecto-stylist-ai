@@ -7,12 +7,21 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "@/hooks/use-toast"
 
 export function HeroSection() {
-  const { user, subscriptionStatus } = useAuth()
+  const { user, subscriptionStatus, isLoading } = useAuth()
   const navigate = useNavigate()
   const isPremium = subscriptionStatus === "active"
 
   const handleAuthCheck = (path: string, e: React.MouseEvent) => {
     e.preventDefault()
+    
+    if (isLoading) {
+      toast({
+        title: "Loading",
+        description: "Please wait while we check your account status",
+        variant: "default",
+      })
+      return
+    }
     
     if (!user) {
       toast({
@@ -68,12 +77,22 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="accent"
               onClick={(e) => handleAuthCheck("/style-advice", e)}
+              disabled={isLoading}
             >
-              <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
-              {user ? (
-                <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
+              {isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
               ) : (
-                <LogIn className="ml-2 h-4 w-4 transition-transform" />
+                <>
+                  <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
+                  {user ? (
+                    <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
+                  ) : (
+                    <LogIn className="ml-2 h-4 w-4 transition-transform" />
+                  )}
+                </>
               )}
             </ButtonCustom>
             
@@ -82,12 +101,22 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="outline"
               onClick={(e) => handleAuthCheck("/profile", e)}
+              disabled={isLoading}
             >
-              <span>Create Style Profile</span>
-              {user ? (
-                <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              {isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
               ) : (
-                <LogIn className="ml-1 h-4 w-4" />
+                <>
+                  <span>Create Style Profile</span>
+                  {user ? (
+                    <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  ) : (
+                    <LogIn className="ml-1 h-4 w-4" />
+                  )}
+                </>
               )}
             </ButtonCustom>
           </div>

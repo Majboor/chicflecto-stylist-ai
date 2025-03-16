@@ -6,11 +6,20 @@ import { useAuth } from "@/context/AuthContext"
 import { toast } from "@/hooks/use-toast"
 
 export function CTASection() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   
   const handleAuthCheck = (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    if (isLoading) {
+      toast({
+        title: "Loading",
+        description: "Please wait while we check your account status",
+        variant: "default",
+      })
+      return
+    }
     
     if (!user) {
       toast({
@@ -44,12 +53,22 @@ export function CTASection() {
               className="group rounded-full animate-pulse" 
               variant="accent"
               onClick={handleAuthCheck}
+              disabled={isLoading}
             >
-              <span>Get Started Now</span>
-              {user ? (
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              {isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
               ) : (
-                <LogIn className="ml-2 h-4 w-4" />
+                <>
+                  <span>Get Started Now</span>
+                  {user ? (
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  ) : (
+                    <LogIn className="ml-2 h-4 w-4" />
+                  )}
+                </>
               )}
             </ButtonCustom>
           </div>
