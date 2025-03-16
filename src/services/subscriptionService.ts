@@ -54,6 +54,14 @@ export function markFirstLoginComplete(): void {
 export async function getUserSubscription(userId: string): Promise<UserSubscription | null> {
   console.log("Getting user subscription for:", userId);
   
+  // If this is a first login, prioritize that status 
+  if (isFirstLogin()) {
+    console.log("First login detected in getUserSubscription, returning null to create new subscription");
+    // Clear any cached subscription to ensure we get fresh data
+    delete subscriptionCache[userId];
+    return null;
+  }
+  
   // Check cache first for faster response
   const cached = subscriptionCache[userId];
   if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
@@ -165,6 +173,12 @@ export async function isUserSubscribed(userId: string): Promise<boolean> {
  * Checks if a user has used their free trial - prioritize localStorage
  */
 export function hasUsedFreeTrial(userId?: string): boolean {
+  // First check if this is a first login - if so, they haven't used the trial
+  if (isFirstLogin()) {
+    console.log("First login detected in hasUsedFreeTrial, trial not used yet");
+    return false;
+  }
+  
   // Check database first
   if (userId) {
     const cached = subscriptionCache[userId];

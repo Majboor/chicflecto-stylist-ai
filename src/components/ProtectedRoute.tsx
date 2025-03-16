@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, isLoading, subscriptionStatus } = useAuth();
+  const { user, isLoading, subscriptionStatus, refreshSubscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
   
   // Get first-time user status from localStorage
@@ -21,12 +21,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const isFreeTrial = subscriptionStatus === FREE_TRIAL || firstTimeUser;
   
   useEffect(() => {
-    // If this is a first-time user, log it
+    // If this is a first-time user, log it and ensure subscription status is refreshed
     if (firstTimeUser && user) {
       console.log("First-time user detected in ProtectedRoute, giving free trial access");
+      // Force a refresh of the subscription status to ensure free trial is properly set
+      refreshSubscriptionStatus();
       // We don't mark first login complete here - that only happens when they use the trial
     }
-  }, [firstTimeUser, user]);
+  }, [firstTimeUser, user, refreshSubscriptionStatus]);
   
   // Reset local loading when auth loading changes
   useEffect(() => {
