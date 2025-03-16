@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -68,6 +69,19 @@ const StyleAdvice = () => {
     }
   }, [styleResponse, subscriptionStatus]);
 
+  // New effect to scroll to pricing when image is uploaded
+  useEffect(() => {
+    if (selectedImage && pricingRef.current && subscriptionStatus !== "active") {
+      setTimeout(() => {
+        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
+        toast.success("Upload successful! Subscribe to get style advice for your outfit!", {
+          duration: 5000,
+        });
+      }, 500);
+    }
+  }, [selectedImage, subscriptionStatus]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -133,11 +147,14 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (subscriptionStatus === "expired") {
-      setShowSubscriptionModal(true);
+    // If user is on free tier or trial, just scroll to pricing
+    if (subscriptionStatus !== "active") {
+      setShowPricingAlert(true);
+      pricingRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     
+    // Only active subscribers can analyze images
     setLoading(true);
     
     const formData = new FormData();
@@ -183,13 +200,6 @@ const StyleAdvice = () => {
       }
       
       toast.success("Analysis complete!");
-      
-      if (subscriptionStatus !== "active" && pricingRef.current) {
-        setTimeout(() => {
-          pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-          setShowPricingAlert(true);
-        }, 1500);
-      }
     } catch (error) {
       console.error("Error analyzing style:", error);
       toast.error("Failed to analyze style. Please try again.");
@@ -365,22 +375,16 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    onClick={(e) => {
-                      if (!selectedImage || loading) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
-                    disabled={!selectedImage || loading || authLoading}
+                    disabled={!selectedImage || loading || authLoading || subscriptionStatus !== "active"}
                   >
-                    {loading ? "Analyzing..." : "Get Style Advice"}
+                    {loading ? "Analyzing..." : (subscriptionStatus === "active" ? "Get Style Advice" : "Subscribe for Analysis")}
                   </button>
                 </div>
                 
-                {subscriptionStatus === "expired" && (
+                {selectedImage && subscriptionStatus !== "active" && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
-                      You've used your free analysis. Subscribe to our Starter package for unlimited style advice.
+                      Subscribe to our Starter package to analyze this outfit and get style advice.
                     </p>
                     <button
                       type="button"
