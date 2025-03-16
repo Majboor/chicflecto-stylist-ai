@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Gem } from "lucide-react";
 import { toast } from "sonner";
+import { ACTIVE } from "@/services/subscriptionService";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -12,7 +13,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
-  const isPremium = subscriptionStatus === "active";
+  const isPremium = subscriptionStatus === ACTIVE;
   
   // Reset local loading when auth loading changes
   useEffect(() => {

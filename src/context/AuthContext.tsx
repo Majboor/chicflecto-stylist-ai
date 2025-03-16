@@ -3,16 +3,14 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-
-// Define subscription status types
-export type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
-
-// Constants for subscription status to avoid magic strings
-export const FREE_TRIAL: SubscriptionStatus = "free_trial";
-export const ACTIVE: SubscriptionStatus = "active";
-
-// Local storage key for caching
-const TRIAL_USAGE_KEY = "fashion_app_free_trial_used";
+import { 
+  SubscriptionStatus, 
+  FREE_TRIAL, 
+  ACTIVE,
+  isUserSubscribed, 
+  hasUsedFreeTrial,
+  getUserSubscription
+} from "@/services/subscriptionService";
 
 interface AuthContextType {
   session: Session | null;
@@ -32,42 +30,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-  // Simple function to check if the free trial has been used from localStorage
-  const hasUsedFreeTrial = (): boolean => {
-    return localStorage.getItem(TRIAL_USAGE_KEY) === "true";
-  };
-
-  // Optimized function to mark free trial as used in both DB and localStorage
-  const markFreeTrialAsUsed = async (userId: string): Promise<boolean> => {
-    console.log("Marking free trial as used for user:", userId);
-    
-    // Update localStorage immediately for fast UI response
-    localStorage.setItem(TRIAL_USAGE_KEY, "true");
-    
-    try {
-      // Then update the database
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({ free_trial_used: true })
-        .eq("user_id", userId)
-        .eq("status", FREE_TRIAL);
-        
-      if (error) {
-        console.error("Error marking free trial as used:", error);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("Exception marking free trial as used:", error);
-      return false;
-    }
-  };
-
   // Optimized function to get subscription status
   const getSubscriptionStatus = async (userId: string): Promise<SubscriptionStatus> => {
     try {
-      // First check if we can get the status directly from the RPC function (fastest)
+      // First check if we can get the status from user_subscriptions
+      const subscription = await getUserSubscription(userId);
+      
+      if (subscription) {
+        // If user has an active subscription
+        if (subscription.is_subscribed) {
+          setSubscriptionStatus(ACTIVE);
+          return ACTIVE;
+        }
+        
+        // If user has a free trial
+        if (subscription.free_trial_used) {
+          // Free trial used, consider expired
+          const freeTrialStatus: SubscriptionStatus = "expired";
+          setSubscriptionStatus(freeTrialStatus);
+          return freeTrialStatus;
+        } else {
+          // Free trial not used yet
+          setSubscriptionStatus(FREE_TRIAL);
+          return FREE_TRIAL;
+        }
+      }
+      
+      // Fallback to RPC function for backward compatibility
       const { data, error } = await supabase.rpc(
         'get_subscription_status',
         { user_uuid: userId }
@@ -92,36 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return statusValue;
       }
       
-      // Fallback to direct query if RPC fails
-      const { data: subData, error: subError } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (subError) {
-        console.error("Error fetching subscription:", subError);
-        // Create a default subscription if none exists
-        await createDefaultSubscription(userId);
-        return FREE_TRIAL;
-      }
-
-      if (subData) {
-        // Track free trial usage in localStorage for faster UI updates
-        if (subData.status === FREE_TRIAL && subData.free_trial_used) {
-          localStorage.setItem(TRIAL_USAGE_KEY, "true");
-        }
-        
-        const statusValue = subData.status as SubscriptionStatus;
-        setSubscriptionStatus(statusValue);
-        return statusValue;
-      } else {
-        // No subscription found, create a default entry
-        await createDefaultSubscription(userId);
-        return FREE_TRIAL;
-      }
+      // No subscription found, create a default entry
+      await createDefaultUserSubscription(userId);
+      return FREE_TRIAL;
     } catch (error) {
       console.error("Error getting subscription status:", error);
       setSubscriptionStatus(FREE_TRIAL);
@@ -129,26 +91,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Helper function to create a default subscription
-  const createDefaultSubscription = async (userId: string): Promise<void> => {
+  // Helper function to create a default user subscription
+  const createDefaultUserSubscription = async (userId: string): Promise<void> => {
     try {
       const { error } = await supabase
-        .from("subscriptions")
+        .from("user_subscriptions")
         .insert({
           user_id: userId,
-          status: FREE_TRIAL,
-          is_active: true,
+          is_subscribed: false,
           free_trial_used: hasUsedFreeTrial()
         });
         
       if (error) {
-        console.error("Error creating default subscription:", error);
+        console.error("Error creating default user subscription:", error);
       } else {
-        console.log("Created default free_trial subscription");
+        console.log("Created default user subscription with free trial");
         setSubscriptionStatus(FREE_TRIAL);
       }
     } catch (error) {
-      console.error("Exception creating default subscription:", error);
+      console.error("Exception creating default user subscription:", error);
     }
   };
 
@@ -235,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else if (event === 'SIGNED_OUT') {
           setSubscriptionStatus(FREE_TRIAL);
-          localStorage.removeItem(TRIAL_USAGE_KEY);
+          localStorage.removeItem("fashion_app_free_trial_used");
         }
         
         setAuthInitialized(true);
@@ -259,7 +220,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       setSubscriptionStatus(FREE_TRIAL);
-      localStorage.removeItem(TRIAL_USAGE_KEY);
       
       // Perform the actual sign out
       const { error } = await supabase.auth.signOut();
@@ -319,4 +279,4 @@ export function useAuth() {
   return context;
 }
 
-// We don't need to re-export the constants since they're already exported at the top of the file
+export { FREE_TRIAL, ACTIVE };

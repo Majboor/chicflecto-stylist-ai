@@ -1,10 +1,11 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
+import { activateUserSubscription } from "@/services/subscriptionService";
+import { verifyPaymentById } from "@/services/paymentService";
 
 const PaymentCallback = () => {
   const location = useLocation();
@@ -19,6 +20,8 @@ const PaymentCallback = () => {
         const queryParams = new URLSearchParams(location.search);
         const success = queryParams.get("success") === "true";
         const txnResponseCode = queryParams.get("txn_response_code");
+        const paymentId = queryParams.get("id");
+        const merchantOrderId = queryParams.get("merchant_order_id");
         
         setPaymentSuccessful(success && txnResponseCode === "APPROVED");
         
@@ -29,101 +32,64 @@ const PaymentCallback = () => {
         }
         
         if (success && txnResponseCode === "APPROVED") {
-          // First record the payment transaction for audit purposes
-          const { error: transactionError } = await supabase
-            .from("payment_transactions")
-            .insert({
-              user_id: user.id,
-              amount: queryParams.get("amount_cents") 
-                ? parseInt(queryParams.get("amount_cents")!) / 100 
-                : 14,
-              payment_reference: queryParams.get("merchant_order_id"),
-              transaction_id: queryParams.get("id"),
-              status: "completed",
-              payment_data: Object.fromEntries(queryParams.entries())
-            });
+          // Record the transaction for audit
+          await recordPaymentTransaction(
+            user.id, 
+            queryParams.get("amount_cents") ? parseInt(queryParams.get("amount_cents")!) / 100 : 14,
+            merchantOrderId,
+            paymentId,
+            "completed",
+            Object.fromEntries(queryParams.entries())
+          );
+          
+          // Activate the subscription
+          const activated = await activateUserSubscription(user.id, merchantOrderId || "manual_activation");
+          
+          if (activated) {
+            // Refresh subscription status to update UI
+            await refreshSubscriptionStatus();
             
-          if (transactionError) {
-            console.error("Transaction recording error:", transactionError);
-            // Continue anyway, subscription is more important
+            // Redirect to accounts page after short delay
+            setTimeout(() => {
+              navigate("/accounts");
+            }, 2000);
           }
+        } else if (paymentId && !paymentSuccessful) {
+          // Try fallback verification if the redirect parameters are unclear
+          const verified = await verifyPaymentById(paymentId);
           
-          // Clear any local storage trial usage data
-          localStorage.removeItem("fashion_app_free_trial_used");
-          
-          // Get existing subscription or create new one
-          const { data: subscription, error: subscriptionError } = await supabase
-            .from("subscriptions")
-            .select("id")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          if (verified) {
+            // Payment verified through fallback, activate subscription
+            await recordPaymentTransaction(
+              user.id,
+              14, // Default amount
+              merchantOrderId,
+              paymentId,
+              "completed",
+              Object.fromEntries(queryParams.entries())
+            );
             
-          if (subscriptionError) {
-            console.error("Subscription fetch error:", subscriptionError);
-          }
-          
-          if (subscription?.id) {
-            // Update existing subscription
-            const { error: updateError } = await supabase
-              .from("subscriptions")
-              .update({
-                status: "active",
-                payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                is_active: true,
-                free_trial_used: false
-              })
-              .eq("id", subscription.id);
-              
-            if (updateError) {
-              console.error("Subscription update error:", updateError);
-              toast.error("Payment completed but subscription update failed");
-            }
-          } else {
-            // Create new subscription
-            const { error: createError } = await supabase
-              .from("subscriptions")
-              .insert({
-                user_id: user.id,
-                status: "active",
-                payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                is_active: true,
-                free_trial_used: false
-              });
-              
-            if (createError) {
-              console.error("Subscription creation error:", createError);
-              toast.error("Payment completed but subscription creation failed");
+            const activated = await activateUserSubscription(user.id, merchantOrderId || paymentId);
+            
+            if (activated) {
+              setPaymentSuccessful(true);
+              await refreshSubscriptionStatus();
+              setTimeout(() => {
+                navigate("/accounts");
+              }, 2000);
+              return;
             }
           }
           
-          // Refresh subscription status to update UI
-          await refreshSubscriptionStatus();
-          toast.success("Payment successful! Your subscription is now active.");
-          
-          // Redirect to accounts page after short delay
-          setTimeout(() => {
-            navigate("/accounts");
-          }, 2000);
-        } else if (!paymentSuccessful) {
-          // Record failed payment if user is logged in
-          if (user) {
-            await supabase
-              .from("payment_transactions")
-              .insert({
-                user_id: user.id,
-                amount: queryParams.get("amount_cents") 
-                  ? parseInt(queryParams.get("amount_cents")!) / 100 
-                  : 14,
-                payment_reference: queryParams.get("merchant_order_id"),
-                transaction_id: queryParams.get("id"),
-                status: "failed",
-                payment_data: Object.fromEntries(queryParams.entries())
-              });
-          }
+          // Record failed payment
+          await recordPaymentTransaction(
+            user.id,
+            queryParams.get("amount_cents") ? parseInt(queryParams.get("amount_cents")!) / 100 : 14,
+            merchantOrderId,
+            paymentId,
+            "failed",
+            Object.fromEntries(queryParams.entries())
+          );
           
           toast.error("Payment was not successful. Please try again.");
         }
@@ -137,6 +103,31 @@ const PaymentCallback = () => {
     
     handlePaymentCallback();
   }, [location.search, user, navigate, refreshSubscriptionStatus]);
+
+  // Helper to record payment transactions
+  async function recordPaymentTransaction(
+    userId: string,
+    amount: number,
+    paymentReference: string | null,
+    transactionId: string | null,
+    status: string,
+    paymentData: any
+  ) {
+    try {
+      await supabase
+        .from("payment_transactions")
+        .insert({
+          user_id: userId,
+          amount: amount,
+          payment_reference: paymentReference,
+          transaction_id: transactionId,
+          status: status,
+          payment_data: paymentData
+        });
+    } catch (error) {
+      console.error("Error recording payment transaction:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
