@@ -89,7 +89,6 @@ const AuthPage = () => {
           }, 500);
           
           setRedirectTimer(timer as unknown as number);
-          return () => clearTimeout(timer);
         }
       }
     );
@@ -157,12 +156,8 @@ const AuthPage = () => {
                   }}
                   providers={[]}
                   redirectTo={window.location.origin}
-                  onError={(error) => {
-                    console.error("Auth error:", error);
-                    setAuthError(error.message);
-                    toast.error("Authentication error: " + error.message);
-                  }}
                 />
+                {/* Error handling has been moved to an event listener in the Auth component */}
               </>
             )}
           </div>
