@@ -1,12 +1,56 @@
 
 import { ButtonCustom } from "./ui/button-custom"
-import { ArrowRight } from "lucide-react"
-import { Link } from "react-router-dom"
+import { ArrowRight, LogIn } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
+import { toast } from "sonner"
+import { useEffect, useState } from "react"
 
 export function CTASection() {
-  const { user } = useAuth();
-  const targetPath = user ? "/style-advice" : "/auth";
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const [localLoading, setLocalLoading] = useState(false);
+  
+  // Reset local loading state when auth loading changes
+  useEffect(() => {
+    if (!isLoading) {
+      setLocalLoading(false);
+    }
+  }, [isLoading]);
+  
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
+    if (localLoading) {
+      const timer = setTimeout(() => {
+        setLocalLoading(false);
+      }, 3000); // 3 second timeout
+      
+      return () => clearTimeout(timer);
+    }
+  }, [localLoading]);
+  
+  const handleAuthCheck = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Set local loading to ensure we don't get stuck
+    setLocalLoading(true);
+    
+    if (isLoading) {
+      // Using the correct toast API
+      toast.loading("Please wait while we check your account status");
+      return;
+    }
+    
+    if (!user) {
+      // Using the correct toast API
+      toast.error("Please sign in to access this feature");
+      navigate("/auth");
+      return;
+    }
+    
+    setLocalLoading(false);
+    navigate("/style-advice");
+  };
   
   return (
     <section className="relative py-16 overflow-hidden">
@@ -22,16 +66,33 @@ export function CTASection() {
           </p>
           
           <div className="mt-10">
-            <Link to={targetPath}>
-              <ButtonCustom size="xl" className="group rounded-full animate-pulse" variant="accent">
-                <span>Get Started Now</span>
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </ButtonCustom>
-            </Link>
+            <ButtonCustom 
+              size="xl" 
+              className="group rounded-full" 
+              variant="accent"
+              onClick={handleAuthCheck}
+              disabled={localLoading || isLoading}
+            >
+              {localLoading || isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <span>Get Started Now</span>
+                  {user ? (
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  ) : (
+                    <LogIn className="ml-2 h-4 w-4" />
+                  )}
+                </>
+              )}
+            </ButtonCustom>
           </div>
           
           <p className="mt-6 text-sm text-fashion-text/60">
-            No account required. Free to use for personal styling.
+            {user ? "Personalized style advice awaits." : "Sign in to unlock all features."}
           </p>
         </div>
       </div>

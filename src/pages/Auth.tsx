@@ -6,29 +6,91 @@ import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { toast } from "sonner";
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        navigate("/");
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+    const handleAuthSession = async () => {
+      setIsLoading(true);
+      
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setSession(null);
+          setIsLoading(false);
+          return;
+        }
+        
         setSession(session);
+        
         if (session) {
-          navigate("/");
+          // Show a message that we're about to redirect
+          toast.success("Successfully signed in!");
+          
+          // Start a countdown for redirect
+          let secondsLeft = 3;
+          const timer = window.setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft <= 0) {
+              clearInterval(timer);
+              navigate("/");
+              setIsLoading(false);
+            } else {
+              setRedirectTimer(secondsLeft);
+            }
+          }, 1000);
+          
+          return () => clearInterval(timer);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Unexpected error in auth flow:", error);
+        setSession(null);
+        setIsLoading(false);
+      }
+    };
+    
+    handleAuthSession();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session) {
+          toast.success("Successfully signed in!");
+          
+          // Start a countdown for redirect
+          let secondsLeft = 3;
+          const timer = window.setInterval(() => {
+            secondsLeft -= 1;
+            if (secondsLeft <= 0) {
+              clearInterval(timer);
+              navigate("/");
+            } else {
+              setRedirectTimer(secondsLeft);
+            }
+          }, 1000);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Ensure we don't get stuck in loading state
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
   return (
@@ -45,31 +107,42 @@ const AuthPage = () => {
           </div>
           
           <div className="glass-card p-8 rounded-xl">
-            <Auth
-              supabaseClient={supabase}
-              appearance={{
-                theme: ThemeSupa,
-                variables: {
-                  default: {
-                    colors: {
-                      brand: "#F43F5E",
-                      brandAccent: "#E11D48",
+            {isLoading ? (
+              <div className="flex flex-col justify-center items-center h-32">
+                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
+                {redirectTimer !== null && (
+                  <p className="text-fashion-text/70 mt-2">
+                    Redirecting in {redirectTimer} seconds...
+                  </p>
+                )}
+              </div>
+            ) : (
+              <Auth
+                supabaseClient={supabase}
+                appearance={{
+                  theme: ThemeSupa,
+                  variables: {
+                    default: {
+                      colors: {
+                        brand: "#F43F5E",
+                        brandAccent: "#E11D48",
+                      }
+                    },
+                  },
+                  // Custom styling through className
+                  style: {
+                    button: {
+                      borderRadius: '0.5rem',
+                    },
+                    input: {
+                      borderRadius: '0.5rem',
                     }
-                  },
-                },
-                // Custom styling through className
-                style: {
-                  button: {
-                    borderRadius: '0.5rem',
-                  },
-                  input: {
-                    borderRadius: '0.5rem',
                   }
-                }
-              }}
-              providers={[]}
-              redirectTo={window.location.origin}
-            />
+                }}
+                providers={[]}
+                redirectTo={window.location.origin}
+              />
+            )}
           </div>
         </div>
       </main>

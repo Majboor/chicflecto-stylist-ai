@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface StyleResponse {
   outfit_analysis: {
@@ -40,6 +42,7 @@ const StyleAdvice = () => {
   const [styleResponse, setStyleResponse] = useState<StyleResponse | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [showPricingAlert, setShowPricingAlert] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -49,9 +52,35 @@ const StyleAdvice = () => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
       setTimeout(() => {
         pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
       }, 500);
     }
   }, []);
+
+  useEffect(() => {
+    if (styleResponse && subscriptionStatus !== "active" && pricingRef.current) {
+      setTimeout(() => {
+        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
+        toast.success("See our pricing plans below to unlock unlimited style advice!", {
+          duration: 5000,
+        });
+      }, 1500);
+    }
+  }, [styleResponse, subscriptionStatus]);
+
+  // New effect to scroll to pricing when image is uploaded
+  useEffect(() => {
+    if (selectedImage && pricingRef.current && subscriptionStatus !== "active") {
+      setTimeout(() => {
+        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
+        toast.success("Upload successful! Subscribe to get style advice for your outfit!", {
+          duration: 5000,
+        });
+      }, 500);
+    }
+  }, [selectedImage, subscriptionStatus]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -118,11 +147,14 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (subscriptionStatus === "expired") {
-      setShowSubscriptionModal(true);
+    // If user is on free tier or trial, just scroll to pricing
+    if (subscriptionStatus !== "active") {
+      setShowPricingAlert(true);
+      pricingRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     
+    // Only active subscribers can analyze images
     setLoading(true);
     
     const formData = new FormData();
@@ -185,10 +217,11 @@ const StyleAdvice = () => {
     }
   };
 
-  const handleImageAreaClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fileInputRef.current?.click();
+  const handleImageAreaClick = () => {
+    console.log("Image area clicked");
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const scrollToPricing = (e: React.MouseEvent) => {
@@ -287,6 +320,15 @@ const StyleAdvice = () => {
                     previewUrl ? "border-fashion-accent" : "border-fashion-text/30"
                   )}
                   onClick={handleImageAreaClick}
+                  role="button"
+                  aria-label="Upload outfit image"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleImageAreaClick();
+                    }
+                  }}
                 >
                   {previewUrl ? (
                     <div className="space-y-4">
@@ -313,6 +355,7 @@ const StyleAdvice = () => {
                     onChange={handleFileChange}
                     accept="image/jpeg,image/png"
                     className="hidden"
+                    aria-hidden="true"
                   />
                 </div>
                 
@@ -332,22 +375,16 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    onClick={(e) => {
-                      if (!selectedImage || loading) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
-                    }}
-                    disabled={!selectedImage || loading || authLoading}
+                    disabled={!selectedImage || loading || authLoading || subscriptionStatus !== "active"}
                   >
-                    {loading ? "Analyzing..." : "Get Style Advice"}
+                    {loading ? "Analyzing..." : (subscriptionStatus === "active" ? "Get Style Advice" : "Subscribe for Analysis")}
                   </button>
                 </div>
                 
-                {subscriptionStatus === "expired" && (
+                {selectedImage && subscriptionStatus !== "active" && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
-                      You've used your free analysis. Subscribe to our Starter package for unlimited style advice.
+                      Subscribe to our Starter package to analyze this outfit and get style advice.
                     </p>
                     <button
                       type="button"
@@ -396,7 +433,18 @@ const StyleAdvice = () => {
             </button>
           </div>
 
-          <div ref={pricingRef} id="pricing" className="mt-24 mb-12">
+          {showPricingAlert && (
+            <div className="my-8 animate-fade-in">
+              <Alert variant="default" className="border-fashion-accent bg-fashion-accent/5">
+                <AlertTitle className="text-fashion-accent">Upgrade Your Style Experience</AlertTitle>
+                <AlertDescription>
+                  Unlock unlimited style advice and personalized recommendations by subscribing to our premium plan.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          <div ref={pricingRef} id="pricing" className="mt-24 mb-12 scroll-mt-24">
             <div className="text-center mb-12">
               <h2 className="fashion-heading text-3xl md:text-4xl mb-4">Choose Your Style Plan</h2>
               <p className="fashion-subheading max-w-2xl mx-auto">

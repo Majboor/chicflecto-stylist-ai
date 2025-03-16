@@ -7,24 +7,57 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { ButtonCustom } from "@/components/ui/button-custom";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Accounts() {
-  const { user, subscriptionStatus, signOut, refreshSubscriptionStatus } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { user, subscriptionStatus, signOut, refreshSubscriptionStatus, isLoading: authLoading } = useAuth();
+  const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pageLoaded, setPageLoaded] = useState(false);
   const navigate = useNavigate();
+  
   const isPremium = subscriptionStatus === "active";
   const isTrialActive = subscriptionStatus === "free_trial";
   const isExpired = subscriptionStatus === "expired";
   const isPending = subscriptionStatus === "pending";
   
-  // Refresh subscription status when page loads
+  const isLoading = authLoading && !pageLoaded;
+  
+  // Refresh subscription status when page loads and mark page as loaded
   useEffect(() => {
-    refreshSubscriptionStatus();
-  }, [refreshSubscriptionStatus]);
+    console.log("Accounts page loaded, auth loading:", authLoading);
+    
+    let mounted = true;
+    
+    const loadData = async () => {
+      try {
+        await refreshSubscriptionStatus();
+      } catch (error) {
+        console.error("Error loading subscription data:", error);
+      } finally {
+        if (mounted) {
+          setPageLoaded(true);
+        }
+      }
+    };
+    
+    loadData();
+    
+    // Set a timeout to ensure page doesn't stay in loading state forever
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        setPageLoaded(true);
+      }
+    }, 5000);
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [refreshSubscriptionStatus, authLoading]);
 
   const handleSignOut = async () => {
-    setLoading(true);
+    setActionLoading(true);
     try {
       await signOut();
       navigate("/auth");
@@ -32,7 +65,7 @@ export default function Accounts() {
       console.error("Error signing out:", error);
       toast.error("Failed to sign out. Please try again.");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -53,6 +86,47 @@ export default function Accounts() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-32 md:py-40">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-10">
+            <Skeleton className="h-10 w-64 mb-2" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+          
+          <div className="grid gap-8">
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-7 w-40 mb-2" />
+                <Skeleton className="h-5 w-56" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-10 w-32" />
+              </CardFooter>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-7 w-40 mb-2" />
+                <Skeleton className="h-5 w-56" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-32 w-full" />
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-10 w-full" />
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-32 md:py-40">
       <div className="max-w-3xl mx-auto">
@@ -66,7 +140,7 @@ export default function Accounts() {
           <ButtonCustom 
             variant="outline" 
             onClick={handleRefreshStatus} 
-            disabled={refreshing}
+            disabled={refreshing || authLoading}
             className="flex items-center gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -96,10 +170,10 @@ export default function Accounts() {
                 variant="subtle" 
                 onClick={handleSignOut} 
                 className="w-full sm:w-auto"
-                disabled={loading}
+                disabled={actionLoading}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                {loading ? 'Signing out...' : 'Sign Out'}
+                {actionLoading ? 'Signing out...' : 'Sign Out'}
               </ButtonCustom>
             </CardFooter>
           </Card>
@@ -243,6 +317,7 @@ export default function Accounts() {
                   variant="accent" 
                   className="w-full"
                   onClick={handleUpgrade}
+                  disabled={authLoading}
                 >
                   {isExpired ? "Renew Subscription" : "Upgrade to Premium"}
                 </ButtonCustom>

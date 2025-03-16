@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending";
 
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   async function getSubscriptionStatus(userId: string) {
     try {
@@ -42,10 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching subscription:", error);
+        setSubscriptionStatus(null);
         return null;
       }
 
@@ -76,57 +79,140 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSubscriptionStatus(status);
           return status;
         }
+      } else {
+        // No subscription found, set to null
+        setSubscriptionStatus(null);
+        return null;
       }
-      return null;
     } catch (error) {
       console.error("Error in getSubscriptionStatus:", error);
+      setSubscriptionStatus(null);
       return null;
     }
   }
 
   async function refreshSubscriptionStatus() {
     if (user) {
-      await getSubscriptionStatus(user.id);
+      setIsLoading(true);
+      try {
+        await getSubscriptionStatus(user.id);
+      } catch (error) {
+        console.error("Error refreshing subscription status:", error);
+        toast.error("Failed to refresh subscription status");
+      } finally {
+        setIsLoading(false);
+      }
     }
   }
 
   useEffect(() => {
+    console.log("AuthContext useEffect running");
+    let isMounted = true;
+    
     async function loadUserData() {
+      if (!isMounted) return;
+      
+      console.log("Loading user data...");
       setIsLoading(true);
       
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await getSubscriptionStatus(session.user.id);
+      try {
+        // Get the session directly to avoid race conditions
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setSession(null);
+          setUser(null);
+          setSubscriptionStatus(null);
+        } else {
+          const { session } = data;
+          
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await getSubscriptionStatus(session.user.id);
+          } else {
+            setSubscriptionStatus(null);
+          }
+        }
+      } catch (error) {
+        console.error("Exception in loadUserData:", error);
+        setSession(null);
+        setUser(null);
+        setSubscriptionStatus(null);
+      } finally {
+        // Always mark auth as initialized and not loading when done
+        if (isMounted) {
+          setAuthInitialized(true);
+          setIsLoading(false);
+        }
+        console.log("User data loading complete");
       }
-      
-      setIsLoading(false);
     }
+    
+    // Set a timeout to ensure we don't get stuck loading forever
+    const timeoutId = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.log("Loading timeout triggered, forcing auth initialization");
+        setAuthInitialized(true);
+        setIsLoading(false);
+      }
+    }, 5000);
     
     loadUserData();
     
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, newSession) => {
+        console.log("Auth state changed:", event);
         
-        if (session?.user) {
-          await getSubscriptionStatus(session.user.id);
-        } else {
+        if (!isMounted) return;
+        
+        // Update session and user immediately
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (newSession?.user) {
+            setIsLoading(true);
+            await getSubscriptionStatus(newSession.user.id);
+            if (isMounted) setIsLoading(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // Clear subscription status on sign out
           setSubscriptionStatus(null);
+        }
+        
+        // Always mark auth as initialized and not loading when done
+        if (isMounted) {
+          setAuthInitialized(true);
+          setIsLoading(false);
         }
       }
     );
     
     return () => {
+      console.log("Cleaning up auth context");
+      isMounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error during sign out:", error);
+      toast.error("Failed to sign out. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value = {
@@ -138,7 +224,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSubscriptionStatus,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // Show loading only for a short time, then render children anyway
+  // This prevents getting stuck on the loading screen
+  return (
+    <AuthContext.Provider value={value}>
+      {authInitialized ? children : (
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
+          <p className="text-fashion-text">Initializing authentication...</p>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

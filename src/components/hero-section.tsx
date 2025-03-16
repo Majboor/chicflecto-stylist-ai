@@ -1,12 +1,58 @@
 
 import { ButtonCustom } from "./ui/button-custom"
-import { ChevronRight, Wand2, Gem } from "lucide-react"
-import { Link } from "react-router-dom"
+import { ChevronRight, Wand2, Gem, LogIn } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { useNavigate } from "react-router-dom"
+import { toast } from "@/hooks/use-toast"
+import { useEffect, useState } from "react"
 
 export function HeroSection() {
-  const { subscriptionStatus } = useAuth()
+  const { user, subscriptionStatus, isLoading } = useAuth()
+  const navigate = useNavigate()
+  const [localLoading, setLocalLoading] = useState(false)
   const isPremium = subscriptionStatus === "active"
+  
+  // Reset local loading state when auth loading changes
+  useEffect(() => {
+    if (!isLoading) {
+      setLocalLoading(false);
+    }
+  }, [isLoading]);
+
+  const handleAuthCheck = (path: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    
+    // Set local loading to ensure we don't get stuck
+    setLocalLoading(true)
+    
+    if (isLoading) {
+      toast({
+        title: "Loading",
+        description: "Please wait while we check your account status",
+        variant: "default",
+      })
+      
+      // Set a timeout to clear the loading state in case it gets stuck
+      setTimeout(() => {
+        setLocalLoading(false);
+      }, 3000);
+      return
+    }
+    
+    if (!user) {
+      setLocalLoading(false)
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this feature",
+        variant: "default",
+      })
+      navigate("/auth")
+      return
+    }
+    
+    setLocalLoading(false)
+    navigate(path)
+  }
 
   return (
     <section className="relative overflow-hidden pt-32 pb-16 md:pt-40 md:pb-24">
@@ -44,23 +90,53 @@ export function HeroSection() {
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up [--delay:200ms]">
-            <Link to="/style-advice" className="w-full sm:w-auto">
-              <ButtonCustom size="xl" className="group rounded-full w-full" variant="accent">
-                <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
-                <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-              </ButtonCustom>
-            </Link>
+            <ButtonCustom 
+              size="xl" 
+              className="group rounded-full w-full sm:w-auto" 
+              variant="accent"
+              onClick={(e) => handleAuthCheck("/style-advice", e)}
+              disabled={localLoading || isLoading}
+            >
+              {localLoading || isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
+                  {user ? (
+                    <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
+                  ) : (
+                    <LogIn className="ml-2 h-4 w-4 transition-transform" />
+                  )}
+                </>
+              )}
+            </ButtonCustom>
             
-            <Link to="/profile" className="w-full sm:w-auto">
-              <ButtonCustom 
-                size="xl" 
-                className="group rounded-full w-full" 
-                variant="outline"
-              >
-                <span>Create Style Profile</span>
-                <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </ButtonCustom>
-            </Link>
+            <ButtonCustom 
+              size="xl" 
+              className="group rounded-full w-full sm:w-auto" 
+              variant="outline"
+              onClick={(e) => handleAuthCheck("/profile", e)}
+              disabled={localLoading || isLoading}
+            >
+              {localLoading || isLoading ? (
+                <>
+                  <span>Checking...</span>
+                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                </>
+              ) : (
+                <>
+                  <span>Create Style Profile</span>
+                  {user ? (
+                    <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  ) : (
+                    <LogIn className="ml-1 h-4 w-4" />
+                  )}
+                </>
+              )}
+            </ButtonCustom>
           </div>
           
           {isPremium && (
