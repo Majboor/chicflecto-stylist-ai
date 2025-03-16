@@ -194,13 +194,15 @@ const StyleAdvice = () => {
           const { error } = await supabase
             .from("subscriptions")
             .update({ 
-              is_active: true 
+              free_trial_used: true 
             })
             .eq("user_id", user.id)
             .eq("status", "free_trial");
             
           if (error) {
             console.error("Error updating subscription:", error);
+          } else {
+            localStorage.setItem("fashion_app_free_trial_used", "true");
           }
         } catch (updateError) {
           console.error("Error in subscription update:", updateError);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Auth } from "@supabase/auth-ui-react";
@@ -31,11 +30,14 @@ const AuthPage = () => {
         setSession(session);
         
         if (session) {
+          // Clear any stale trial usage data when signing in to a new session
+          localStorage.removeItem("fashion_app_free_trial_used");
+          
           // Show a message that we're about to redirect
           toast.success("Successfully signed in!");
           
           // Start a countdown for redirect
-          let secondsLeft = 3;
+          let secondsLeft = 2; // Reduced from 3 to 2 for faster redirection
           const timer = window.setInterval(() => {
             secondsLeft -= 1;
             if (secondsLeft <= 0) {
@@ -65,10 +67,13 @@ const AuthPage = () => {
         setSession(session);
         
         if (session) {
+          // Clear any stale trial usage data
+          localStorage.removeItem("fashion_app_free_trial_used");
+          
           toast.success("Successfully signed in!");
           
           // Start a countdown for redirect
-          let secondsLeft = 3;
+          let secondsLeft = 2; // Reduced from 3 to 2
           const timer = window.setInterval(() => {
             secondsLeft -= 1;
             if (secondsLeft <= 0) {

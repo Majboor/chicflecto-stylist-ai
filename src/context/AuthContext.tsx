@@ -6,6 +6,13 @@ import { toast } from "sonner";
 
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
 
+// Constants to avoid magic strings
+const FREE_TRIAL = "free_trial";
+const ACTIVE = "active";
+
+// Cache key for local storage
+const TRIAL_USAGE_KEY = "fashion_app_free_trial_used";
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -20,30 +27,81 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>(FREE_TRIAL);
   const [isLoading, setIsLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
+  
+  // Helper function to mark trial as used in both DB and localStorage
+  async function markFreeTrialAsUsed(userId: string) {
+    console.log("Marking free trial as used for user:", userId);
+    
+    // Update local storage first for immediate feedback
+    localStorage.setItem(TRIAL_USAGE_KEY, "true");
+    
+    try {
+      // Then update the database
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ 
+          free_trial_used: true 
+        })
+        .eq("user_id", userId)
+        .eq("status", FREE_TRIAL);
+        
+      if (error) {
+        console.error("Error marking free trial as used in DB:", error);
+        return false;
+      }
+      
+      console.log("Successfully marked free trial as used in DB");
+      return true;
+    } catch (error) {
+      console.error("Exception marking free trial as used:", error);
+      return false;
+    }
+  }
+  
+  // Check if free trial has been used (from localStorage for speed)
+  function hasUsedFreeTrial(): boolean {
+    return localStorage.getItem(TRIAL_USAGE_KEY) === "true";
+  }
 
   async function getSubscriptionStatus(userId: string) {
     try {
       console.log("Fetching subscription status for user:", userId);
       
-      // First try to get status from the database function
+      // First try to get status from database function (faster)
       const { data: funcData, error: funcError } = await supabase.rpc(
         'get_subscription_status',
         { user_uuid: userId }
       );
       
-      console.log("RPC result:", { data: funcData, error: funcError });
+      console.log("RPC subscription status result:", { data: funcData, error: funcError });
       
       if (!funcError && funcData) {
         console.log("Setting subscription status from RPC:", funcData);
+        
+        // Sync localStorage with database status
+        if (funcData === FREE_TRIAL) {
+          // Check if free trial is marked as used in DB
+          const { data: subData } = await supabase
+            .from("subscriptions")
+            .select("free_trial_used")
+            .eq("user_id", userId)
+            .eq("status", FREE_TRIAL)
+            .maybeSingle();
+            
+          if (subData?.free_trial_used) {
+            localStorage.setItem(TRIAL_USAGE_KEY, "true");
+          }
+        }
+        
         setSubscriptionStatus(funcData as SubscriptionStatus);
         return funcData;
       }
       
       // Fallback to direct query if the function doesn't work
-      console.log("RPC failed or returned no data, falling back to direct query");
+      console.log("RPC failed, falling back to direct query");
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
@@ -56,9 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error fetching subscription:", error);
-        // Set default status to prevent getting stuck
-        setSubscriptionStatus("free_trial");
-        return "free_trial";
+        setSubscriptionStatus(FREE_TRIAL);
+        return FREE_TRIAL;
       }
 
       if (data) {
@@ -67,14 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           status?: string;
           is_active?: boolean;
           expires_at?: string;
+          free_trial_used?: boolean;
         };
+        
+        // Sync localStorage with database
+        if (subscription.status === FREE_TRIAL && subscription.free_trial_used) {
+          localStorage.setItem(TRIAL_USAGE_KEY, "true");
+        }
         
         // Check if the subscription has status field
         if (subscription.status) {
           const status = subscription.status as SubscriptionStatus;
           
           // If subscription is expired, update it
-          if (status === "free_trial" && subscription.expires_at && new Date(subscription.expires_at) < new Date()) {
+          if (status === FREE_TRIAL && subscription.expires_at && new Date(subscription.expires_at) < new Date()) {
             console.log("Free trial expired, updating status to expired");
             setSubscriptionStatus("expired");
             return "expired";
@@ -86,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           // If no status field, determine based on is_active
           const isActive = subscription.is_active;
-          const status = isActive ? "active" : "expired";
+          const status = isActive ? ACTIVE : "expired";
           console.log("Setting subscription status based on is_active:", status);
           setSubscriptionStatus(status);
           return status;
@@ -100,33 +163,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from("subscriptions")
             .insert({
               user_id: userId,
-              status: "free_trial",
+              status: FREE_TRIAL,
               is_active: true,
               free_trial_used: false
             });
             
           if (insertError) {
             console.error("Error creating default subscription:", insertError);
-            // Still set a default status even if insert fails
-            setSubscriptionStatus("free_trial");
+            setSubscriptionStatus(FREE_TRIAL);
           } else {
             console.log("Created default free_trial subscription");
-            setSubscriptionStatus("free_trial");
+            setSubscriptionStatus(FREE_TRIAL);
+            // Reset local storage
+            localStorage.removeItem(TRIAL_USAGE_KEY);
           }
           
-          return "free_trial";
+          return FREE_TRIAL;
         } catch (insertErr) {
           console.error("Exception creating default subscription:", insertErr);
-          // Still set a default status even if insert fails
-          setSubscriptionStatus("free_trial");
-          return "free_trial";
+          setSubscriptionStatus(FREE_TRIAL);
+          return FREE_TRIAL;
         }
       }
     } catch (error) {
       console.error("Error in getSubscriptionStatus:", error);
-      // Set default status to prevent getting stuck
-      setSubscriptionStatus("free_trial");
-      return "free_trial";
+      setSubscriptionStatus(FREE_TRIAL);
+      return FREE_TRIAL;
     }
   }
 
@@ -138,8 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error refreshing subscription status:", error);
         toast.error("Failed to refresh subscription status");
-        // Set a fallback status to prevent getting stuck
-        setSubscriptionStatus("free_trial");
+        setSubscriptionStatus(FREE_TRIAL);
       } finally {
         setIsLoading(false);
       }
@@ -157,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       
       try {
-        // Get the session directly to avoid race conditions
+        // Get the session directly for faster response
         const { data, error } = await supabase.auth.getSession();
         
         if (!isMounted) return;
@@ -166,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Error getting session:", error);
           setSession(null);
           setUser(null);
-          setSubscriptionStatus("free_trial"); // Set default instead of null
+          setSubscriptionStatus(FREE_TRIAL);
         } else {
           const { session } = data;
           
@@ -176,14 +237,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             await getSubscriptionStatus(session.user.id);
           } else {
-            setSubscriptionStatus("free_trial"); // Set default instead of null
+            setSubscriptionStatus(FREE_TRIAL);
           }
         }
       } catch (error) {
         console.error("Exception in loadUserData:", error);
         setSession(null);
         setUser(null);
-        setSubscriptionStatus("free_trial"); // Set default instead of null
+        setSubscriptionStatus(FREE_TRIAL);
       } finally {
         // Always mark auth as initialized and not loading when done
         if (isMounted) {
@@ -200,10 +261,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Loading timeout triggered, forcing auth initialization");
         setAuthInitialized(true);
         setIsLoading(false);
-        // Also set a default subscription status
-        setSubscriptionStatus("free_trial");
+        setSubscriptionStatus(FREE_TRIAL);
       }
-    }, 3000); // Reduced from 5000 to 3000 ms
+    }, 2000); // Reduced for faster response
     
     loadUserData();
     
@@ -226,7 +286,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else if (event === 'SIGNED_OUT') {
           // Clear subscription status on sign out
-          setSubscriptionStatus(null);
+          setSubscriptionStatus(FREE_TRIAL);
+          // Clear local storage on sign out
+          localStorage.removeItem(TRIAL_USAGE_KEY);
         }
         
         // Always mark auth as initialized and not loading when done
@@ -253,7 +315,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear state first to prevent UI flicker
       setUser(null);
       setSession(null);
-      setSubscriptionStatus(null);
+      setSubscriptionStatus(FREE_TRIAL);
+      localStorage.removeItem(TRIAL_USAGE_KEY);
       
       // Then perform the actual sign out
       const { error } = await supabase.auth.signOut();
@@ -309,3 +372,6 @@ export function useAuth() {
   }
   return context;
 }
+
+// Export the helper for use in components that need to mark trial as used
+export { FREE_TRIAL, ACTIVE };

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +75,9 @@ const PaymentCallback = () => {
             return;
           }
           
+          // Clear any local storage trial usage data when upgrading to paid subscription
+          localStorage.removeItem("fashion_app_free_trial_used");
+          
           // If we don't have a subscription yet, create one
           if (!subscriptionId) {
             const { data: newSubscription, error: createError } = await supabase
@@ -85,7 +87,8 @@ const PaymentCallback = () => {
                 status: "active",
                 payment_reference: queryParams.get("merchant_order_id"),
                 expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                is_active: true
+                is_active: true,
+                free_trial_used: false // Reset free_trial_used flag on payment
               })
               .select()
               .single();
@@ -103,7 +106,8 @@ const PaymentCallback = () => {
                 status: "active",
                 payment_reference: queryParams.get("merchant_order_id"),
                 expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                is_active: true
+                is_active: true,
+                free_trial_used: false // Reset free_trial_used flag on payment
               })
               .eq("id", subscriptionId);
               

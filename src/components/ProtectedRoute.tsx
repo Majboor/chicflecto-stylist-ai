@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       // Short delay to allow state to settle
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 100);
+      }, 50); // Reduced from 100ms for faster response
       return () => clearTimeout(timer);
     }
   }, [isLoading]);
@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       if (isLoading) {
         toast.error("Loading is taking longer than expected. Please refresh the page if this persists.");
       }
-    }, 2000); // Reduced from 3000 to 2000 ms
+    }, 1500); // Reduced from 2000ms for faster response
     
     return () => clearTimeout(timer);
   }, [isLoading]);
