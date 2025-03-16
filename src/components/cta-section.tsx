@@ -23,7 +23,7 @@ export function CTASection() {
     if (localLoading) {
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 5000);
+      }, 3000); // 3 second timeout
       
       return () => clearTimeout(timer);
     }
@@ -37,7 +37,6 @@ export function CTASection() {
     
     if (isLoading) {
       toast.loading("Please wait while we check your account status");
-      
       return;
     }
     

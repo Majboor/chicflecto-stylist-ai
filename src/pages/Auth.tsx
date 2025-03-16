@@ -61,11 +61,12 @@ const AuthPage = () => {
     handleAuthSession();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         
         if (session) {
           toast.success("Successfully signed in!");
+          
           // Start a countdown for redirect
           let secondsLeft = 3;
           const timer = window.setInterval(() => {
@@ -77,14 +78,18 @@ const AuthPage = () => {
               setRedirectTimer(secondsLeft);
             }
           }, 1000);
-          
-          // Fix: Don't return a function here, just clear the timer if component unmounts
         }
       }
     );
 
+    // Ensure we don't get stuck in loading state
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000);
+
     return () => {
       subscription.unsubscribe();
+      clearTimeout(timeoutId);
     };
   }, [navigate]);
 

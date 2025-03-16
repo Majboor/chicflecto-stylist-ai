@@ -13,23 +13,22 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [localLoading, setLocalLoading] = useState(true);
   const isPremium = subscriptionStatus === "active";
   
-  // Set a timeout to ensure we don't get stuck in a loading state
+  // Reset local loading when auth loading changes
   useEffect(() => {
-    console.log("ProtectedRoute loading status:", isLoading);
-    
     if (!isLoading) {
       setLocalLoading(false);
-      return;
     }
-    
-    // Set a timeout to prevent infinite loading
+  }, [isLoading]);
+  
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
     const timer = setTimeout(() => {
       console.log("ProtectedRoute loading timeout triggered");
       setLocalLoading(false);
-    }, 5000);
+    }, 3000); // 3 second timeout
     
     return () => clearTimeout(timer);
-  }, [isLoading]);
+  }, []);
   
   // If still in initial loading state, show a loading indicator
   if (localLoading && isLoading) {

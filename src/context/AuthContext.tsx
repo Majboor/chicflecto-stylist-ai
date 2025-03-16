@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.log("Error fetching subscription:", error);
+        console.error("Error fetching subscription:", error);
         setSubscriptionStatus(null);
         return null;
       }
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
     } catch (error) {
-      console.log("Error in getSubscriptionStatus:", error);
+      console.error("Error in getSubscriptionStatus:", error);
       setSubscriptionStatus(null);
       return null;
     }
@@ -123,32 +123,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error("Error getting session:", error);
-          if (isMounted) {
-            setSession(null);
-            setUser(null);
-            setSubscriptionStatus(null);
-          }
+          setSession(null);
+          setUser(null);
+          setSubscriptionStatus(null);
         } else {
           const { session } = data;
           
-          if (isMounted) {
-            setSession(session);
-            setUser(session?.user ?? null);
-            
-            if (session?.user) {
-              await getSubscriptionStatus(session.user.id);
-            } else {
-              setSubscriptionStatus(null);
-            }
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await getSubscriptionStatus(session.user.id);
+          } else {
+            setSubscriptionStatus(null);
           }
         }
       } catch (error) {
         console.error("Exception in loadUserData:", error);
-        if (isMounted) {
-          setSession(null);
-          setUser(null);
-          setSubscriptionStatus(null);
-        }
+        setSession(null);
+        setUser(null);
+        setSubscriptionStatus(null);
       } finally {
         // Always mark auth as initialized and not loading when done
         if (isMounted) {
@@ -158,6 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("User data loading complete");
       }
     }
+    
+    // Set a timeout to ensure we don't get stuck loading forever
+    const timeoutId = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.log("Loading timeout triggered, forcing auth initialization");
+        setAuthInitialized(true);
+        setIsLoading(false);
+      }
+    }, 5000);
     
     loadUserData();
     
@@ -194,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log("Cleaning up auth context");
       isMounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -220,9 +224,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSubscriptionStatus,
   };
 
+  // Show loading only for a short time, then render children anyway
+  // This prevents getting stuck on the loading screen
   return (
     <AuthContext.Provider value={value}>
-      {authInitialized || !isLoading ? children : (
+      {authInitialized ? children : (
         <div className="min-h-screen flex flex-col items-center justify-center">
           <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
           <p className="text-fashion-text">Initializing authentication...</p>
