@@ -13,6 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
+// Define the same subscription status type locally to ensure it matches AuthContext
+type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
+
 interface StyleResponse {
   outfit_analysis: {
     items: string[];
@@ -182,8 +185,8 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      // Fix for the type error: Use type guard to check if subscriptionStatus is "free_trial"
-      if (subscriptionStatus === "free_trial" as const) {
+      // Check if subscription status is free_trial with type safety
+      if (subscriptionStatus && subscriptionStatus === "free_trial") {
         try {
           const { error } = await supabase
             .from("subscriptions")
