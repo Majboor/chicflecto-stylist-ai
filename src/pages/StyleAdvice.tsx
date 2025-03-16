@@ -210,7 +210,9 @@ const StyleAdvice = () => {
   const handleImageAreaClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const scrollToPricing = (e: React.MouseEvent) => {
@@ -309,6 +311,17 @@ const StyleAdvice = () => {
                     previewUrl ? "border-fashion-accent" : "border-fashion-text/30"
                   )}
                   onClick={handleImageAreaClick}
+                  role="button"
+                  aria-label="Upload outfit image"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (fileInputRef.current) {
+                        fileInputRef.current.click();
+                      }
+                    }
+                  }}
                 >
                   {previewUrl ? (
                     <div className="space-y-4">
@@ -335,6 +348,7 @@ const StyleAdvice = () => {
                     onChange={handleFileChange}
                     accept="image/jpeg,image/png"
                     className="hidden"
+                    aria-hidden="true"
                   />
                 </div>
                 
