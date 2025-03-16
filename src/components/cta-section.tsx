@@ -14,7 +14,10 @@ export function CTASection() {
   // Reset local loading state when auth loading changes
   useEffect(() => {
     if (!isLoading) {
-      setLocalLoading(false);
+      // Short timeout to ensure we have the latest auth state
+      setTimeout(() => {
+        setLocalLoading(false);
+      }, 100);
     }
   }, [isLoading]);
   
@@ -23,7 +26,7 @@ export function CTASection() {
     if (localLoading) {
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 3000); // 3 second timeout
+      }, 1500); // 1.5 second timeout
       
       return () => clearTimeout(timer);
     }
@@ -36,20 +39,22 @@ export function CTASection() {
     setLocalLoading(true);
     
     if (isLoading) {
-      // Using the correct toast API
-      toast.loading("Please wait while we check your account status");
+      toast.loading("Please wait while we check your account status", {
+        duration: 2000,
+        onAutoClose: () => setLocalLoading(false)
+      });
       return;
     }
     
     if (!user) {
-      // Using the correct toast API
       toast.error("Please sign in to access this feature");
       navigate("/auth");
+      setLocalLoading(false);
       return;
     }
     
-    setLocalLoading(false);
     navigate("/style-advice");
+    setLocalLoading(false);
   };
   
   return (
@@ -71,9 +76,9 @@ export function CTASection() {
               className="group rounded-full" 
               variant="accent"
               onClick={handleAuthCheck}
-              disabled={localLoading || isLoading}
+              disabled={localLoading}
             >
-              {localLoading || isLoading ? (
+              {localLoading ? (
                 <>
                   <span>Checking...</span>
                   <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>

@@ -3,7 +3,7 @@ import { ButtonCustom } from "./ui/button-custom"
 import { ChevronRight, Wand2, Gem, LogIn } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { useNavigate } from "react-router-dom"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 export function HeroSection() {
@@ -15,9 +15,23 @@ export function HeroSection() {
   // Reset local loading state when auth loading changes
   useEffect(() => {
     if (!isLoading) {
-      setLocalLoading(false);
+      // Short timeout to ensure we have the latest auth state
+      setTimeout(() => {
+        setLocalLoading(false);
+      }, 100);
     }
   }, [isLoading]);
+
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
+    if (localLoading) {
+      const timer = setTimeout(() => {
+        setLocalLoading(false);
+      }, 1500); // 1.5 second timeout
+      
+      return () => clearTimeout(timer);
+    }
+  }, [localLoading]);
 
   const handleAuthCheck = (path: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -26,32 +40,22 @@ export function HeroSection() {
     setLocalLoading(true)
     
     if (isLoading) {
-      toast({
-        title: "Loading",
-        description: "Please wait while we check your account status",
-        variant: "default",
-      })
-      
-      // Set a timeout to clear the loading state in case it gets stuck
-      setTimeout(() => {
-        setLocalLoading(false);
-      }, 3000);
+      toast.loading("Please wait while we check your account status", {
+        duration: 2000,
+        onAutoClose: () => setLocalLoading(false)
+      });
       return
     }
     
     if (!user) {
-      setLocalLoading(false)
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to access this feature",
-        variant: "default",
-      })
-      navigate("/auth")
+      toast.error("Please sign in to access this feature");
+      navigate("/auth");
+      setLocalLoading(false);
       return
     }
     
-    setLocalLoading(false)
-    navigate(path)
+    navigate(path);
+    setLocalLoading(false);
   }
 
   return (
@@ -95,9 +99,9 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="accent"
               onClick={(e) => handleAuthCheck("/style-advice", e)}
-              disabled={localLoading || isLoading}
+              disabled={localLoading}
             >
-              {localLoading || isLoading ? (
+              {localLoading ? (
                 <>
                   <span>Checking...</span>
                   <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
@@ -119,9 +123,9 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="outline"
               onClick={(e) => handleAuthCheck("/profile", e)}
-              disabled={localLoading || isLoading}
+              disabled={localLoading}
             >
-              {localLoading || isLoading ? (
+              {localLoading ? (
                 <>
                   <span>Checking...</span>
                   <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
