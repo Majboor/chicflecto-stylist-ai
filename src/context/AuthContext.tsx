@@ -42,10 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle() to handle case where no subscription exists
 
       if (error) {
-        console.error("Error fetching subscription:", error);
+        console.log("Error fetching subscription:", error);
+        setSubscriptionStatus(null);
         return null;
       }
 
@@ -76,17 +77,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSubscriptionStatus(status);
           return status;
         }
+      } else {
+        // No subscription found, set to null
+        setSubscriptionStatus(null);
+        return null;
       }
-      return null;
     } catch (error) {
-      console.error("Error in getSubscriptionStatus:", error);
+      console.log("Error in getSubscriptionStatus:", error);
+      setSubscriptionStatus(null);
       return null;
+    } finally {
+      // Ensure isLoading is set to false even if there are errors
+      setIsLoading(false);
     }
   }
 
   async function refreshSubscriptionStatus() {
     if (user) {
+      setIsLoading(true);
       await getSubscriptionStatus(user.id);
+      setIsLoading(false);
     }
   }
 
@@ -94,28 +104,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadUserData() {
       setIsLoading(true);
       
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await getSubscriptionStatus(session.user.id);
-      }
-      
-      setIsLoading(false);
-    }
-    
-    loadUserData();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           await getSubscriptionStatus(session.user.id);
         } else {
+          // If no session, set subscription status to null and finish loading
           setSubscriptionStatus(null);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.log("Error in loadUserData:", error);
+        // Set states to null in case of error
+        setSession(null);
+        setUser(null);
+        setSubscriptionStatus(null);
+        setIsLoading(false);
+      }
+    }
+    
+    loadUserData();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Temporarily set isLoading to true when auth state changes
+        setIsLoading(true);
+        
+        if (session?.user) {
+          await getSubscriptionStatus(session.user.id);
+        } else {
+          setSubscriptionStatus(null);
+          setIsLoading(false);
         }
       }
     );
@@ -126,7 +151,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.log("Error during sign out:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value = {
