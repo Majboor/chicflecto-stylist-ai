@@ -14,6 +14,7 @@ const AuthPage = () => {
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if already authenticated and redirect if needed
@@ -26,6 +27,7 @@ const AuthPage = () => {
         if (error) {
           console.error("Session check error:", error);
           setSession(null);
+          setAuthError("Failed to check authentication status.");
           setIsLoading(false);
           return;
         }
@@ -35,20 +37,28 @@ const AuthPage = () => {
         if (data.session) {
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
+          
           // For truly new users coming in, make sure we mark them as first-time
-          if (!localStorage.getItem("fashion_app_first_login")) {
-            localStorage.setItem("fashion_app_first_login", "true");
-          }
+          localStorage.setItem("fashion_app_first_login", "true");
+          
           // Clear subscription cache to ensure fresh data
           clearSubscriptionCache(data.session.user.id);
           
           toast.success("You're signed in!");
-          navigate("/");
+          
+          // Use a shorter timeout for better UX
+          const timer = setTimeout(() => {
+            navigate("/");
+          }, 500);
+          
+          setRedirectTimer(timer as unknown as number);
+          return () => clearTimeout(timer);
         } else {
           setIsLoading(false);
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        setAuthError("An unexpected error occurred. Please try again.");
         setIsLoading(false);
       }
     };
@@ -73,8 +83,13 @@ const AuthPage = () => {
           
           toast.success("Successfully signed in!");
           
-          // Quick redirect for better UX
-          navigate("/");
+          // Set a shorter redirect timeout
+          const timer = setTimeout(() => {
+            navigate("/");
+          }, 500);
+          
+          setRedirectTimer(timer as unknown as number);
+          return () => clearTimeout(timer);
         }
       }
     );
@@ -85,10 +100,11 @@ const AuthPage = () => {
     }, 800);
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
+      if (redirectTimer) clearTimeout(redirectTimer);
       clearTimeout(timeoutId);
     };
-  }, [navigate]);
+  }, [navigate, redirectTimer]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -107,37 +123,47 @@ const AuthPage = () => {
             {isLoading ? (
               <div className="flex flex-col justify-center items-center h-32">
                 <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
-                {redirectTimer !== null && (
-                  <p className="text-fashion-text/70 mt-2">
-                    Redirecting...
-                  </p>
-                )}
+                <p className="text-fashion-text/70 mt-2">
+                  Loading...
+                </p>
               </div>
             ) : (
-              <Auth
-                supabaseClient={supabase}
-                appearance={{
-                  theme: ThemeSupa,
-                  variables: {
-                    default: {
-                      colors: {
-                        brand: "#F43F5E",
-                        brandAccent: "#E11D48",
+              <>
+                {authError && (
+                  <div className="mb-4 p-4 border border-red-200 bg-red-50 text-red-600 rounded-md">
+                    {authError}
+                  </div>
+                )}
+                <Auth
+                  supabaseClient={supabase}
+                  appearance={{
+                    theme: ThemeSupa,
+                    variables: {
+                      default: {
+                        colors: {
+                          brand: "#F43F5E",
+                          brandAccent: "#E11D48",
+                        }
+                      },
+                    },
+                    style: {
+                      button: {
+                        borderRadius: '0.5rem',
+                      },
+                      input: {
+                        borderRadius: '0.5rem',
                       }
-                    },
-                  },
-                  style: {
-                    button: {
-                      borderRadius: '0.5rem',
-                    },
-                    input: {
-                      borderRadius: '0.5rem',
                     }
-                  }
-                }}
-                providers={[]}
-                redirectTo={window.location.origin}
-              />
+                  }}
+                  providers={[]}
+                  redirectTo={window.location.origin}
+                  onError={(error) => {
+                    console.error("Auth error:", error);
+                    setAuthError(error.message);
+                    toast.error("Authentication error: " + error.message);
+                  }}
+                />
+              </>
             )}
           </div>
         </div>

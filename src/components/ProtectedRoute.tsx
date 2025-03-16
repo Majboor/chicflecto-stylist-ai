@@ -13,6 +13,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus, refreshSubscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
+  const [authCheckTimeout, setAuthCheckTimeout] = useState(false);
   
   // Get first-time user status from localStorage
   const firstTimeUser = isFirstLogin();
@@ -54,6 +55,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const timer = setTimeout(() => {
       if (localLoading) {
         setLocalLoading(false);
+        setAuthCheckTimeout(true);
         
         // If still loading after timeout, show toast to user
         if (isLoading) {
@@ -64,6 +66,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     
     return () => clearTimeout(timer);
   }, [isLoading, localLoading]);
+  
+  // If loading timeout occurred but user is defined, still show the content
+  if (authCheckTimeout && user) {
+    return <>{children}</>;
+  }
   
   // If still in initial loading state, show a loading indicator
   if (localLoading && isLoading) {
