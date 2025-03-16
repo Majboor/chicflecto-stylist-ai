@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("subscriptions")
-        .select("status, expires_at")
+        .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)

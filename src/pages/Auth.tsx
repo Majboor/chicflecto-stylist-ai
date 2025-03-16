@@ -54,13 +54,18 @@ const AuthPage = () => {
                     colors: {
                       brand: "#F43F5E",
                       brandAccent: "#E11D48",
-                    },
-                    borderRadii: {
-                      button: "0.5rem",
-                      input: "0.5rem",
-                    },
+                    }
                   },
                 },
+                // Custom styling through className
+                style: {
+                  button: {
+                    borderRadius: '0.5rem',
+                  },
+                  input: {
+                    borderRadius: '0.5rem',
+                  }
+                }
               }}
               providers={[]}
               redirectTo={window.location.origin}

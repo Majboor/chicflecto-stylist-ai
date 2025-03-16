@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +42,7 @@ const PaymentCallback = () => {
           // Get the active subscription
           const { data: subscriptionData, error: subscriptionError } = await supabase
             .from("subscriptions")
-            .select("id, status")
+            .select("*")
             .eq("user_id", user.id)
             .eq("status", "free_trial")
             .order("created_at", { ascending: false })

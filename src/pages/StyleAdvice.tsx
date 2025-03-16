@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -32,6 +31,40 @@ interface PricingTier {
   buttonText: string;
   popular?: boolean;
 }
+
+const buttonVariants = ({ 
+  variant = "default", 
+  size = "default", 
+  className = "" 
+}: { 
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "subtle" | "accent" | "glass"; 
+  size?: "default" | "sm" | "lg" | "xl" | "icon"; 
+  className?: string;
+}) => {
+  const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+  
+  const variantStyles: Record<string, string> = {
+    default: "bg-fashion-text text-primary-foreground hover:bg-fashion-text/90",
+    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    outline: "border border-fashion-dark/20 bg-background hover:bg-accent hover:text-accent-foreground",
+    secondary: "bg-fashion-light text-fashion-text hover:bg-fashion-light/80",
+    ghost: "hover:bg-accent hover:text-accent-foreground",
+    link: "text-fashion-accent underline-offset-4 hover:underline",
+    subtle: "bg-fashion-light/50 text-fashion-text hover:bg-fashion-light",
+    accent: "bg-fashion-accent text-white hover:bg-fashion-accent/90",
+    glass: "backdrop-blur-md bg-white/20 border border-white/30 text-fashion-text hover:bg-white/30 shadow-sm",
+  };
+  
+  const sizeStyles: Record<string, string> = {
+    default: "h-10 px-4 py-2",
+    sm: "h-9 rounded-md px-3",
+    lg: "h-11 rounded-md px-8",
+    xl: "h-12 rounded-md px-10 text-base",
+    icon: "h-10 w-10",
+  };
+  
+  return `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+};
 
 const StyleAdvice = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -77,7 +110,6 @@ const StyleAdvice = () => {
 
     setIsPaymentLoading(true);
     try {
-      // Use our Supabase Edge Function to initiate payment
       const { data, error } = await supabase.functions.invoke("payment-handler", {
         body: {
           amount: 5141,
@@ -113,14 +145,12 @@ const StyleAdvice = () => {
       return;
     }
 
-    // Check if user is logged in
     if (!user) {
       toast.error("Please log in to use this feature");
       navigate("/auth");
       return;
     }
 
-    // Check subscription status
     if (subscriptionStatus === "expired") {
       setShowSubscriptionModal(true);
       return;
@@ -156,12 +186,12 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      // If this is a free trial and they haven't upgraded yet, mark as used
       if (subscriptionStatus === "free_trial") {
-        // Update the subscription to mark free trial as used
         const { error } = await supabase
           .from("subscriptions")
-          .update({ free_trial_used: true })
+          .update({ 
+            free_trial_used: true 
+          })
           .eq("user_id", user.id)
           .eq("status", "free_trial");
           
@@ -239,7 +269,6 @@ const StyleAdvice = () => {
     }
   ];
 
-  // Show login button if not authenticated
   const renderAuthButton = () => {
     if (authLoading) {
       return (
@@ -520,37 +549,3 @@ const StyleAdvice = () => {
 };
 
 export default StyleAdvice;
-
-const buttonVariants = ({
-  variant = "default",
-  size = "default",
-  className = "",
-}: {
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "subtle" | "accent" | "glass";
-  size?: "default" | "sm" | "lg" | "xl" | "icon";
-  className?: string;
-}) => {
-  const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
-  
-  const variantStyles = {
-    default: "bg-fashion-text text-primary-foreground hover:bg-fashion-text/90",
-    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-    outline: "border border-fashion-dark/20 bg-background hover:bg-accent hover:text-accent-foreground",
-    secondary: "bg-fashion-light text-fashion-text hover:bg-fashion-light/80",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    link: "text-fashion-accent underline-offset-4 hover:underline",
-    subtle: "bg-fashion-light/50 text-fashion-text hover:bg-fashion-light",
-    accent: "bg-fashion-accent text-white hover:bg-fashion-accent/90",
-    glass: "backdrop-blur-md bg-white/20 border border-white/30 text-fashion-text hover:bg-white/30 shadow-sm",
-  };
-  
-  const sizeStyles = {
-    default: "h-10 px-4 py-2",
-    sm: "h-9 rounded-md px-3",
-    lg: "h-11 rounded-md px-8",
-    xl: "h-12 rounded-md px-10 text-base",
-    icon: "h-10 w-10",
-  };
-  
-  return `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
-};
