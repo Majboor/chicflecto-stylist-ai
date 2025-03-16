@@ -86,9 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Error in getSubscriptionStatus:", error);
       setSubscriptionStatus(null);
       return null;
-    } finally {
-      // Ensure isLoading is set to false even if there are errors
-      setIsLoading(false);
     }
   }
 
@@ -101,28 +98,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let isMounted = true; // Add a mounted flag to prevent state updates after unmount
+    
     async function loadUserData() {
+      if (!isMounted) return;
       setIsLoading(true);
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           await getSubscriptionStatus(session.user.id);
-        } else {
-          // If no session, set subscription status to null and finish loading
-          setSubscriptionStatus(null);
-          setIsLoading(false);
         }
+        
+        // Always set loading to false after processing
+        if (isMounted) setIsLoading(false);
       } catch (error) {
         console.log("Error in loadUserData:", error);
         // Set states to null in case of error
-        setSession(null);
-        setUser(null);
-        setSubscriptionStatus(null);
-        setIsLoading(false);
+        if (isMounted) {
+          setSession(null);
+          setUser(null);
+          setSubscriptionStatus(null);
+          setIsLoading(false);
+        }
       }
     }
     
@@ -130,29 +134,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
+        // Update session and user immediately
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Temporarily set isLoading to true when auth state changes
-        setIsLoading(true);
-        
+        // Set loading true only if we need to fetch subscription status
         if (session?.user) {
+          setIsLoading(true);
           await getSubscriptionStatus(session.user.id);
+          if (isMounted) setIsLoading(false);
         } else {
+          // If no user, just set subscription to null and loading to false
           setSubscriptionStatus(null);
-          setIsLoading(false);
         }
       }
     );
     
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
     } catch (error) {
       console.log("Error during sign out:", error);

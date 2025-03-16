@@ -6,24 +6,41 @@ import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { toast } from "sonner";
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsLoading(true);
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        navigate("/");
+        // Wait a moment before navigating to ensure any other data is loaded
+        setTimeout(() => {
+          navigate("/");
+          setIsLoading(false);
+        }, 500);
+      } else {
+        setIsLoading(false);
       }
+    }).catch(error => {
+      console.error("Error getting session:", error);
+      setIsLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         if (session) {
-          navigate("/");
+          toast.success("Successfully signed in!");
+          // Wait a moment before navigating to ensure any other data is loaded
+          setTimeout(() => {
+            navigate("/");
+          }, 500);
         }
       }
     );
@@ -45,31 +62,37 @@ const AuthPage = () => {
           </div>
           
           <div className="glass-card p-8 rounded-xl">
-            <Auth
-              supabaseClient={supabase}
-              appearance={{
-                theme: ThemeSupa,
-                variables: {
-                  default: {
-                    colors: {
-                      brand: "#F43F5E",
-                      brandAccent: "#E11D48",
+            {isLoading ? (
+              <div className="flex justify-center items-center h-32">
+                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
+              </div>
+            ) : (
+              <Auth
+                supabaseClient={supabase}
+                appearance={{
+                  theme: ThemeSupa,
+                  variables: {
+                    default: {
+                      colors: {
+                        brand: "#F43F5E",
+                        brandAccent: "#E11D48",
+                      }
+                    },
+                  },
+                  // Custom styling through className
+                  style: {
+                    button: {
+                      borderRadius: '0.5rem',
+                    },
+                    input: {
+                      borderRadius: '0.5rem',
                     }
-                  },
-                },
-                // Custom styling through className
-                style: {
-                  button: {
-                    borderRadius: '0.5rem',
-                  },
-                  input: {
-                    borderRadius: '0.5rem',
                   }
-                }
-              }}
-              providers={[]}
-              redirectTo={window.location.origin}
-            />
+                }}
+                providers={[]}
+                redirectTo={window.location.origin}
+              />
+            )}
           </div>
         </div>
       </main>

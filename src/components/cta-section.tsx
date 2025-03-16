@@ -4,24 +4,42 @@ import { ArrowRight, LogIn } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "@/hooks/use-toast"
+import { useEffect, useState } from "react"
 
 export function CTASection() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [localLoading, setLocalLoading] = useState(false);
+  
+  // Reset local loading state when auth loading changes
+  useEffect(() => {
+    if (!isLoading) {
+      setLocalLoading(false);
+    }
+  }, [isLoading]);
   
   const handleAuthCheck = (e: React.MouseEvent) => {
     e.preventDefault();
+    
+    // Set local loading to ensure we don't get stuck
+    setLocalLoading(true);
     
     if (isLoading) {
       toast({
         title: "Loading",
         description: "Please wait while we check your account status",
         variant: "default",
-      })
-      return
+      });
+      
+      // Set a timeout to clear the loading state in case it gets stuck
+      setTimeout(() => {
+        setLocalLoading(false);
+      }, 3000);
+      return;
     }
     
     if (!user) {
+      setLocalLoading(false);
       toast({
         title: "Authentication Required",
         description: "Please sign in to access this feature",
@@ -31,6 +49,7 @@ export function CTASection() {
       return;
     }
     
+    setLocalLoading(false);
     navigate("/style-advice");
   };
   
@@ -53,9 +72,9 @@ export function CTASection() {
               className="group rounded-full animate-pulse" 
               variant="accent"
               onClick={handleAuthCheck}
-              disabled={isLoading}
+              disabled={localLoading || isLoading}
             >
-              {isLoading ? (
+              {localLoading || isLoading ? (
                 <>
                   <span>Checking...</span>
                   <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
