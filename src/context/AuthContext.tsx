@@ -8,8 +8,8 @@ import { toast } from "sonner";
 export type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
 
 // Constants for subscription status to avoid magic strings
-export const FREE_TRIAL = "free_trial";
-export const ACTIVE = "active";
+export const FREE_TRIAL: SubscriptionStatus = "free_trial";
+export const ACTIVE: SubscriptionStatus = "active";
 
 // Local storage key for caching
 const TRIAL_USAGE_KEY = "fashion_app_free_trial_used";
@@ -86,8 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq("status", FREE_TRIAL);
         }
         
-        setSubscriptionStatus(data as SubscriptionStatus);
-        return data as SubscriptionStatus;
+        // Ensure we're setting the correct type
+        const statusValue = data as SubscriptionStatus;
+        setSubscriptionStatus(statusValue);
+        return statusValue;
       }
       
       // Fallback to direct query if RPC fails
@@ -112,8 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(TRIAL_USAGE_KEY, "true");
         }
         
-        setSubscriptionStatus(subData.status);
-        return subData.status;
+        const statusValue = subData.status as SubscriptionStatus;
+        setSubscriptionStatus(statusValue);
+        return statusValue;
       } else {
         // No subscription found, create a default entry
         await createDefaultSubscription(userId);
@@ -316,5 +319,4 @@ export function useAuth() {
   return context;
 }
 
-// Export constants for use in components
-export { FREE_TRIAL, ACTIVE };
+// We don't need to re-export the constants since they're already exported at the top of the file
