@@ -50,12 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        // Ensure data is properly typed
+        const subscription = data as {
+          status?: string;
+          is_active?: boolean;
+          expires_at?: string;
+        };
+        
         // Check if the subscription has status field
-        if ('status' in data) {
-          const status = data.status as SubscriptionStatus;
+        if (subscription.status) {
+          const status = subscription.status as SubscriptionStatus;
           
           // If subscription is expired, update it
-          if (status === "free_trial" && 'expires_at' in data && new Date(data.expires_at) < new Date()) {
+          if (status === "free_trial" && subscription.expires_at && new Date(subscription.expires_at) < new Date()) {
             setSubscriptionStatus("expired");
             return "expired";
           }
@@ -64,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return status;
         } else {
           // If no status field, determine based on is_active
-          const isActive = data.is_active;
+          const isActive = subscription.is_active;
           const status = isActive ? "active" : "expired";
           setSubscriptionStatus(status);
           return status;
