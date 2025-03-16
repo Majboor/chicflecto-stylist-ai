@@ -16,12 +16,11 @@ const AuthPage = () => {
   const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Immediately check if the user is already signed in
   useEffect(() => {
-    // Check if already authenticated and redirect if needed
     const checkSession = async () => {
-      setIsLoading(true);
-      
       try {
+        console.log("Auth page: Checking initial session");
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -35,6 +34,7 @@ const AuthPage = () => {
         setSession(data.session);
         
         if (data.session) {
+          console.log("Auth page: User already signed in, redirecting");
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
           
@@ -46,13 +46,10 @@ const AuthPage = () => {
           
           toast.success("You're signed in!");
           
-          // Use a shorter timeout for better UX
-          const timer = setTimeout(() => {
-            navigate("/");
-          }, 500);
-          
-          setRedirectTimer(timer as unknown as number);
+          // Immediately navigate without delay
+          navigate("/");
         } else {
+          // User is not signed in, show the auth UI right away
           setIsLoading(false);
         }
       } catch (error) {
@@ -62,11 +59,12 @@ const AuthPage = () => {
       }
     };
     
+    // Run immediately
     checkSession();
     
-    // Listen for auth state changes
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log("Auth state changed:", event);
         setSession(session);
         
@@ -82,20 +80,19 @@ const AuthPage = () => {
           
           toast.success("Successfully signed in!");
           
-          // Set a shorter redirect timeout
-          const timer = setTimeout(() => {
-            navigate("/");
-          }, 500);
-          
-          setRedirectTimer(timer as unknown as number);
+          // Navigate immediately without delay
+          navigate("/");
         }
       }
     );
 
-    // Shorter timeout for faster UX
+    // Very short timeout as a fallback to ensure we don't stay in loading forever
     const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
+      if (isLoading) {
+        console.log("Auth page: Forcing loading to end after timeout");
+        setIsLoading(false);
+      }
+    }, 300); // Very short timeout
 
     return () => {
       if (subscription) subscription.unsubscribe();
@@ -156,7 +153,6 @@ const AuthPage = () => {
                   providers={[]}
                   redirectTo={window.location.origin}
                 />
-                {/* Error handling has been moved to an event listener in the Auth component */}
               </>
             )}
           </div>

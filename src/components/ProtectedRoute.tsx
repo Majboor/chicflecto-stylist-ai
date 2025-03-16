@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus, refreshSubscriptionStatus } = useAuth();
-  const [localLoading, setLocalLoading] = useState(true);
+  const [localLoading, setLocalLoading] = useState(false); // Start with false to avoid excessive "checking" state
   const [authCheckTimeout, setAuthCheckTimeout] = useState(false);
   
   // Get first-time user status from localStorage
@@ -31,17 +31,23 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
   }, [firstTimeUser, user, refreshSubscriptionStatus]);
   
-  // Reset local loading when auth loading changes
+  // Only set loading state if auth is loading and we have no user yet
   useEffect(() => {
-    if (!isLoading) {
+    if (isLoading && !user) {
+      // Only show loading for a very short time
+      setLocalLoading(true);
+      
       // Very short delay for better UX
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 100); // Reduced from 300ms to 100ms for faster loading
+      }, 50); // Extremely short delay
       
       return () => clearTimeout(timer);
+    } else {
+      // If we have a user or loading is done, immediately remove loading state
+      setLocalLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, user]);
   
   // Handle component unmount
   useEffect(() => {
@@ -58,29 +64,33 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         setAuthCheckTimeout(true);
         
         // If still loading after timeout, show toast to user
-        if (isLoading) {
+        if (isLoading && !user) {
           toast.error("Authentication taking longer than expected. Please refresh if this persists.");
         }
       }
-    }, 1000); // Reduced from 2000ms to 1000ms
+    }, 500); // Very short timeout
     
     return () => clearTimeout(timer);
-  }, [isLoading, localLoading]);
+  }, [isLoading, localLoading, user]);
   
   // If loading timeout occurred but user is defined, still show the content
   if (authCheckTimeout && user) {
     return <>{children}</>;
   }
   
-  // If authentication is taking too long but we can determine this is a free trial,
-  // go ahead and show content anyway for better UX
-  if (localLoading && isLoading && firstTimeUser) {
-    console.log("First-time user detected, bypassing loading state");
+  // For first-time users, skip the loading state entirely for better UX
+  if (firstTimeUser) {
+    console.log("First-time user detected in ProtectedRoute, bypassing loading state");
+    return <>{children}</>;
+  }
+  
+  // If we have a user but auth is still finalizing, show content anyway
+  if (user && isLoading) {
     return <>{children}</>;
   }
   
   // If still in initial loading state but not for too long, show a loading indicator
-  if (localLoading && isLoading) {
+  if (localLoading && isLoading && !user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
