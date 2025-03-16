@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -9,7 +9,8 @@ import {
   ACTIVE,
   isUserSubscribed, 
   hasUsedFreeTrial,
-  getUserSubscription
+  getUserSubscription,
+  clearSubscriptionCache
 } from "@/services/subscriptionService";
 
 interface AuthContextType {
@@ -31,9 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authInitialized, setAuthInitialized] = useState(false);
 
   // Optimized function to get subscription status
-  const getSubscriptionStatus = async (userId: string): Promise<SubscriptionStatus> => {
+  const getSubscriptionStatus = useCallback(async (userId: string): Promise<SubscriptionStatus> => {
     try {
-      // First check if we can get the status from user_subscriptions
+      // Get the subscription directly from the user_subscriptions table
       const subscription = await getUserSubscription(userId);
       
       if (subscription) {
@@ -56,31 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Fallback to RPC function for backward compatibility
-      const { data, error } = await supabase.rpc(
-        'get_subscription_status',
-        { user_uuid: userId }
-      );
-      
-      if (!error && data) {
-        console.log("Subscription status from RPC:", data);
-        
-        // If it's a free trial, check localStorage for usage status
-        if (data === FREE_TRIAL && hasUsedFreeTrial()) {
-          // Verify the database has the correct state
-          await supabase
-            .from("subscriptions")
-            .update({ free_trial_used: true })
-            .eq("user_id", userId)
-            .eq("status", FREE_TRIAL);
-        }
-        
-        // Ensure we're setting the correct type by casting
-        const statusValue = data as SubscriptionStatus;
-        setSubscriptionStatus(statusValue);
-        return statusValue;
-      }
-      
       // No subscription found, create a default entry
       await createDefaultUserSubscription(userId);
       return FREE_TRIAL;
@@ -89,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSubscriptionStatus(FREE_TRIAL);
       return FREE_TRIAL;
     }
-  };
+  }, []);
 
   // Helper function to create a default user subscription
   const createDefaultUserSubscription = async (userId: string): Promise<void> => {
@@ -114,11 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Function to refresh subscription status
-  const refreshSubscriptionStatus = async () => {
+  const refreshSubscriptionStatus = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
+      // Clear cache to ensure fresh data
+      clearSubscriptionCache(user.id);
       await getSubscriptionStatus(user.id);
     } catch (error) {
       console.error("Error refreshing subscription status:", error);
@@ -126,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, getSubscriptionStatus]);
 
   // Initialize auth state on component mount
   useEffect(() => {
@@ -174,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthInitialized(true);
         setIsLoading(false);
       }
-    }, 1500);
+    }, 1000); // Reduced from 1500ms for faster loading
     
     initializeAuth();
     
@@ -197,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_OUT') {
           setSubscriptionStatus(FREE_TRIAL);
           localStorage.removeItem("fashion_app_free_trial_used");
+          // Clear all subscription caches on sign out
+          clearSubscriptionCache();
         }
         
         setAuthInitialized(true);
@@ -209,10 +189,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [getSubscriptionStatus]);
 
   // Simplified sign out function
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -245,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Context value
   const value = {

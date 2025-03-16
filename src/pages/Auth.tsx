@@ -65,10 +65,10 @@ const AuthPage = () => {
       }
     );
 
-    // Ensure we don't get stuck in loading state
+    // Shorter timeout for faster UX
     const timeoutId = setTimeout(() => {
       setIsLoading(false);
-    }, 1500);
+    }, 800);
 
     return () => {
       subscription.unsubscribe();

@@ -18,11 +18,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Reset local loading when auth loading changes
   useEffect(() => {
     if (!isLoading) {
-      // Short delay to allow state to settle
-      const timer = setTimeout(() => {
-        setLocalLoading(false);
-      }, 20); // Reduced for faster response
-      return () => clearTimeout(timer);
+      // Immediate response for better UX
+      setLocalLoading(false);
     }
   }, [isLoading]);
   
@@ -35,7 +32,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       if (isLoading) {
         toast.error("Authentication taking longer than expected. Please refresh if this persists.");
       }
-    }, 1000); // Reduced timeout for faster loading
+    }, 800); // Reduced timeout for faster response
     
     return () => clearTimeout(timer);
   }, [isLoading]);

@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 // Constants
 const TRIAL_USAGE_KEY = "fashion_app_free_trial_used";
+const SUBSCRIPTION_CACHE_KEY = "fashion_app_subscription_cache";
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Types
 export type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
@@ -22,10 +24,24 @@ interface UserSubscription {
   updated_at: string;
 }
 
+interface CachedSubscription {
+  subscription: UserSubscription | null;
+  timestamp: number;
+}
+
+// Local cache
+let subscriptionCache: Record<string, CachedSubscription> = {};
+
 /**
- * Retrieves a user's subscription record
+ * Retrieves a user's subscription record with caching
  */
 export async function getUserSubscription(userId: string): Promise<UserSubscription | null> {
+  // Check cache first
+  const cached = subscriptionCache[userId];
+  if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+    return cached.subscription;
+  }
+  
   try {
     const { data, error } = await supabase
       .from("user_subscriptions")
@@ -38,10 +54,27 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
       return null;
     }
     
+    // Update cache
+    subscriptionCache[userId] = {
+      subscription: data,
+      timestamp: Date.now()
+    };
+    
     return data;
   } catch (error) {
     console.error("Exception fetching user subscription:", error);
     return null;
+  }
+}
+
+/**
+ * Clears the subscription cache for a user
+ */
+export function clearSubscriptionCache(userId?: string) {
+  if (userId) {
+    delete subscriptionCache[userId];
+  } else {
+    subscriptionCache = {};
   }
 }
 
@@ -81,6 +114,9 @@ export async function markFreeTrialAsUsed(userId: string): Promise<boolean> {
       return false;
     }
     
+    // Clear cache
+    clearSubscriptionCache(userId);
+    
     return true;
   } catch (error) {
     console.error("Exception marking free trial as used:", error);
@@ -117,6 +153,9 @@ export async function activateUserSubscription(
       toast.error("Failed to activate subscription.");
       return false;
     }
+    
+    // Clear cache
+    clearSubscriptionCache(userId);
     
     toast.success("Subscription activated successfully!");
     return true;
