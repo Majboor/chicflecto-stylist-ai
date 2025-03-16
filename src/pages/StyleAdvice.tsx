@@ -186,16 +186,20 @@ const StyleAdvice = () => {
       setStyleResponse(data);
       
       if (subscriptionStatus === "free_trial") {
-        const { error } = await supabase
-          .from("subscriptions")
-          .update({ 
-            is_active: true
-          })
-          .eq("user_id", user.id)
-          .eq("status", "free_trial");
-          
-        if (error) {
-          console.error("Error updating subscription:", error);
+        try {
+          const { error } = await supabase
+            .from("subscriptions")
+            .update({ 
+              is_active: true 
+            })
+            .eq("user_id", user.id)
+            .eq("status", "free_trial");
+            
+          if (error) {
+            console.error("Error updating subscription:", error);
+          }
+        } catch (updateError) {
+          console.error("Error in subscription update:", updateError);
         }
       }
       
