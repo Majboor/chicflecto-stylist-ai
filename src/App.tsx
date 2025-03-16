@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -11,7 +12,7 @@ import Accounts from "./pages/Accounts";
 import { Header } from "./components/header";
 import { Footer } from "./components/footer";
 import { Toaster } from "./components/ui/toaster";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
 function App() {
