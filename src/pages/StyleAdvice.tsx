@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -181,7 +182,8 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       
-      if (subscriptionStatus === "free_trial") {
+      // Fix for the type error: Use type guard to check if subscriptionStatus is "free_trial"
+      if (subscriptionStatus === "free_trial" as const) {
         try {
           const { error } = await supabase
             .from("subscriptions")
