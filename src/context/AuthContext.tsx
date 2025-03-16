@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error("Error fetching subscription:", error);
         // Set default status to prevent getting stuck
-        setSubscriptionStatus(null);
-        return null;
+        setSubscriptionStatus("free_trial");
+        return "free_trial";
       }
 
       if (data) {
@@ -92,10 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return status;
         }
       } else {
-        // No subscription found, set to null
-        console.log("No subscription found, setting status to null");
+        // No subscription found, create a default entry
+        console.log("No subscription found, creating default free_trial subscription");
         
-        // If no subscription found, create a default entry
         try {
           const { error: insertError } = await supabase
             .from("subscriptions")
@@ -108,24 +107,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
           if (insertError) {
             console.error("Error creating default subscription:", insertError);
-            setSubscriptionStatus(null);
+            // Still set a default status even if insert fails
+            setSubscriptionStatus("free_trial");
           } else {
             console.log("Created default free_trial subscription");
             setSubscriptionStatus("free_trial");
-            return "free_trial";
           }
+          
+          return "free_trial";
         } catch (insertErr) {
           console.error("Exception creating default subscription:", insertErr);
-          setSubscriptionStatus(null);
+          // Still set a default status even if insert fails
+          setSubscriptionStatus("free_trial");
+          return "free_trial";
         }
-        
-        return null;
       }
     } catch (error) {
       console.error("Error in getSubscriptionStatus:", error);
       // Set default status to prevent getting stuck
-      setSubscriptionStatus(null);
-      return null;
+      setSubscriptionStatus("free_trial");
+      return "free_trial";
     }
   }
 
@@ -137,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error refreshing subscription status:", error);
         toast.error("Failed to refresh subscription status");
+        // Set a fallback status to prevent getting stuck
+        setSubscriptionStatus("free_trial");
       } finally {
         setIsLoading(false);
       }
@@ -163,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Error getting session:", error);
           setSession(null);
           setUser(null);
-          setSubscriptionStatus(null);
+          setSubscriptionStatus("free_trial"); // Set default instead of null
         } else {
           const { session } = data;
           
@@ -173,14 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session?.user) {
             await getSubscriptionStatus(session.user.id);
           } else {
-            setSubscriptionStatus(null);
+            setSubscriptionStatus("free_trial"); // Set default instead of null
           }
         }
       } catch (error) {
         console.error("Exception in loadUserData:", error);
         setSession(null);
         setUser(null);
-        setSubscriptionStatus(null);
+        setSubscriptionStatus("free_trial"); // Set default instead of null
       } finally {
         // Always mark auth as initialized and not loading when done
         if (isMounted) {
@@ -197,8 +200,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Loading timeout triggered, forcing auth initialization");
         setAuthInitialized(true);
         setIsLoading(false);
+        // Also set a default subscription status
+        setSubscriptionStatus("free_trial");
       }
-    }, 5000);
+    }, 3000); // Reduced from 5000 to 3000 ms
     
     loadUserData();
     
