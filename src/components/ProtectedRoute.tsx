@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Gem } from "lucide-react";
 import { toast } from "sonner";
-import { ACTIVE } from "@/services/subscriptionService";
+import { ACTIVE, FREE_TRIAL } from "@/services/subscriptionService";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,6 +14,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoading, subscriptionStatus } = useAuth();
   const [localLoading, setLocalLoading] = useState(true);
   const isPremium = subscriptionStatus === ACTIVE;
+  const isFreeTrial = subscriptionStatus === FREE_TRIAL;
   
   // Reset local loading when auth loading changes
   useEffect(() => {
@@ -43,11 +44,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="animate-spin h-12 w-12 border-4 border-fashion-accent border-t-transparent rounded-full"></div>
         <p className="text-fashion-text/70 mt-2">Loading your profile...</p>
-        {isPremium && (
+        {(isPremium || isFreeTrial) && (
           <div className="flex items-center gap-2 mt-4">
             <Gem className="h-5 w-5 text-purple-500" />
             <span className="text-sm font-medium bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
-              Loading Premium Content
+              {isPremium ? "Loading Premium Content" : "Free Trial Active"}
             </span>
           </div>
         )}

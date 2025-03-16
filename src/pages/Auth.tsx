@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { toast } from "sonner";
+import { clearSubscriptionCache } from "@/services/subscriptionService";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -34,6 +35,8 @@ const AuthPage = () => {
         if (data.session) {
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
+          // Clear subscription cache to ensure fresh data
+          clearSubscriptionCache(data.session.user.id);
           
           toast.success("You're signed in!");
           navigate("/");
@@ -50,12 +53,16 @@ const AuthPage = () => {
     
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         
         if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
           // Clear any stale trial usage data
           localStorage.removeItem("fashion_app_free_trial_used");
+          // Clear subscription cache to ensure fresh data
+          if (event === 'SIGNED_IN') {
+            clearSubscriptionCache(session.user.id);
+          }
           
           toast.success("Successfully signed in!");
           

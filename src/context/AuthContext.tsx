@@ -34,54 +34,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Optimized function to get subscription status
   const getSubscriptionStatus = useCallback(async (userId: string): Promise<SubscriptionStatus> => {
     try {
+      console.log("Getting subscription status for user:", userId);
+      
       // Get the subscription directly from the user_subscriptions table
       const subscription = await getUserSubscription(userId);
       
       if (subscription) {
+        console.log("Found subscription:", subscription);
+        
         // If user has an active subscription
         if (subscription.is_subscribed) {
+          console.log("User has active subscription");
           setSubscriptionStatus(ACTIVE);
           return ACTIVE;
         }
         
-        // If user has a free trial
+        // Check free trial status
         if (subscription.free_trial_used) {
           // Free trial used, consider expired
+          console.log("User's free trial is used");
           const freeTrialStatus: SubscriptionStatus = "expired";
           setSubscriptionStatus(freeTrialStatus);
           return freeTrialStatus;
         } else {
           // Free trial not used yet
+          console.log("User's free trial is available");
           setSubscriptionStatus(FREE_TRIAL);
           return FREE_TRIAL;
         }
+      } else {
+        console.log("No subscription found, creating default entry");
+        // No subscription found, create a default entry
+        await createDefaultUserSubscription(userId);
+        // Always default to FREE_TRIAL for new users
+        setSubscriptionStatus(FREE_TRIAL);
+        return FREE_TRIAL;
       }
-      
-      // No subscription found, create a default entry
-      await createDefaultUserSubscription(userId);
-      return FREE_TRIAL;
     } catch (error) {
       console.error("Error getting subscription status:", error);
+      // Default to free trial on error for better user experience
       setSubscriptionStatus(FREE_TRIAL);
       return FREE_TRIAL;
     }
   }, []);
 
-  // Helper function to create a default user subscription
+  // Helper function to create a default user subscription with free trial
   const createDefaultUserSubscription = async (userId: string): Promise<void> => {
     try {
+      console.log("Creating default user subscription for:", userId);
       const { error } = await supabase
         .from("user_subscriptions")
         .insert({
           user_id: userId,
           is_subscribed: false,
-          free_trial_used: hasUsedFreeTrial()
+          free_trial_used: false // Explicitly set to false for new users
         });
         
       if (error) {
         console.error("Error creating default user subscription:", error);
       } else {
-        console.log("Created default user subscription with free trial");
+        console.log("Successfully created default user subscription with free trial");
+        // Explicitly set free trial status
         setSubscriptionStatus(FREE_TRIAL);
       }
     } catch (error) {
@@ -89,17 +102,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Function to refresh subscription status
+  // Function to refresh subscription status with improved error handling
   const refreshSubscriptionStatus = useCallback(async () => {
     if (!user) return;
     
+    console.log("Refreshing subscription status for user:", user.id);
     setIsLoading(true);
+    
     try {
       // Clear cache to ensure fresh data
       clearSubscriptionCache(user.id);
       await getSubscriptionStatus(user.id);
     } catch (error) {
       console.error("Error refreshing subscription status:", error);
+      // Default to free trial on error for better user experience
       setSubscriptionStatus(FREE_TRIAL);
     } finally {
       setIsLoading(false);
@@ -112,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     async function initializeAuth() {
       setIsLoading(true);
+      console.log("Initializing auth state");
       
       try {
         // Get the current session
@@ -131,16 +148,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log("Session exists, getting subscription status");
           await getSubscriptionStatus(session.user.id);
         } else {
+          console.log("No session, defaulting to free trial");
           setSubscriptionStatus(FREE_TRIAL);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
+        // Default to free trial on error
+        setSubscriptionStatus(FREE_TRIAL);
       } finally {
         if (mounted) {
           setAuthInitialized(true);
           setIsLoading(false);
+          console.log("Auth initialization complete");
         }
       }
     }
@@ -152,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthInitialized(true);
         setIsLoading(false);
       }
-    }, 1000); // Reduced from 1500ms for faster loading
+    }, 800); // Reduced timeout for faster loading
     
     initializeAuth();
     
@@ -166,13 +188,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
+          console.log("User signed in, getting fresh subscription status");
+          if (newSession?.user) {
+            setIsLoading(true);
+            // Clear cache for fresh data on sign in
+            clearSubscriptionCache(newSession.user.id);
+            await getSubscriptionStatus(newSession.user.id);
+            if (mounted) setIsLoading(false);
+          }
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("Token refreshed, updating subscription status");
           if (newSession?.user) {
             setIsLoading(true);
             await getSubscriptionStatus(newSession.user.id);
             if (mounted) setIsLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
+          console.log("User signed out, resetting subscription status");
           setSubscriptionStatus(FREE_TRIAL);
           localStorage.removeItem("fashion_app_free_trial_used");
           // Clear all subscription caches on sign out
@@ -195,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log("User requested sign out");
       
       // Clear state first for immediate UI update
       setUser(null);
