@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface StyleResponse {
   outfit_analysis: {
@@ -40,6 +41,7 @@ const StyleAdvice = () => {
   const [styleResponse, setStyleResponse] = useState<StyleResponse | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [showPricingAlert, setShowPricingAlert] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -49,9 +51,22 @@ const StyleAdvice = () => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
       setTimeout(() => {
         pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
       }, 500);
     }
   }, []);
+
+  useEffect(() => {
+    if (styleResponse && subscriptionStatus !== "active" && pricingRef.current) {
+      setTimeout(() => {
+        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+        setShowPricingAlert(true);
+        toast.success("See our pricing plans below to unlock unlimited style advice!", {
+          duration: 5000,
+        });
+      }, 1500);
+    }
+  }, [styleResponse, subscriptionStatus]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -168,6 +183,13 @@ const StyleAdvice = () => {
       }
       
       toast.success("Analysis complete!");
+      
+      if (subscriptionStatus !== "active" && pricingRef.current) {
+        setTimeout(() => {
+          pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+          setShowPricingAlert(true);
+        }, 1500);
+      }
     } catch (error) {
       console.error("Error analyzing style:", error);
       toast.error("Failed to analyze style. Please try again.");
@@ -396,7 +418,18 @@ const StyleAdvice = () => {
             </button>
           </div>
 
-          <div ref={pricingRef} id="pricing" className="mt-24 mb-12">
+          {showPricingAlert && (
+            <div className="my-8 animate-fade-in">
+              <Alert variant="default" className="border-fashion-accent bg-fashion-accent/5">
+                <AlertTitle className="text-fashion-accent">Upgrade Your Style Experience</AlertTitle>
+                <AlertDescription>
+                  Unlock unlimited style advice and personalized recommendations by subscribing to our premium plan.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          <div ref={pricingRef} id="pricing" className="mt-24 mb-12 scroll-mt-24">
             <div className="text-center mb-12">
               <h2 className="fashion-heading text-3xl md:text-4xl mb-4">Choose Your Style Plan</h2>
               <p className="fashion-subheading max-w-2xl mx-auto">

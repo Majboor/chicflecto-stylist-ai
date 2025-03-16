@@ -36,11 +36,13 @@ export function CTASection() {
     setLocalLoading(true);
     
     if (isLoading) {
+      // Using the correct toast API
       toast.loading("Please wait while we check your account status");
       return;
     }
     
     if (!user) {
+      // Using the correct toast API
       toast.error("Please sign in to access this feature");
       navigate("/auth");
       return;

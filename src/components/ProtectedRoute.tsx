@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Gem } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -25,10 +26,15 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const timer = setTimeout(() => {
       console.log("ProtectedRoute loading timeout triggered");
       setLocalLoading(false);
+      
+      // If still loading after timeout, show alert to user
+      if (isLoading) {
+        toast.error("Loading is taking longer than expected. Please refresh the page if this persists.");
+      }
     }, 3000); // 3 second timeout
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoading]);
   
   // If still in initial loading state, show a loading indicator
   if (localLoading && isLoading) {
