@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -11,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { markFreeTrialAsUsed } from "@/services/subscriptionService";
 
 // Define the subscription status type locally to ensure it matches AuthContext
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
@@ -50,10 +52,11 @@ const StyleAdvice = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showPricingAlert, setShowPricingAlert] = useState(false);
+  const [freeTrialUsed, setFreeTrialUsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user, subscriptionStatus, isLoading: authLoading } = useAuth();
+  const { user, subscriptionStatus, isLoading: authLoading, refreshSubscriptionStatus } = useAuth();
 
   useEffect(() => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
@@ -88,7 +91,7 @@ const StyleAdvice = () => {
     }
   }, [selectedImage, subscriptionStatus]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedImage(file);
@@ -100,6 +103,25 @@ const StyleAdvice = () => {
         }
       };
       fileReader.readAsDataURL(file);
+      
+      // Mark free trial as used when image is uploaded
+      if (user && isSubscriptionStatus(subscriptionStatus, "free_trial") && !freeTrialUsed) {
+        try {
+          console.log("Marking free trial as used on image upload");
+          const success = await markFreeTrialAsUsed(user.id);
+          
+          if (success) {
+            setFreeTrialUsed(true);
+            localStorage.setItem("fashion_app_free_trial_used", "true");
+            toast.success("You've used your free trial upload!");
+            
+            // Refresh subscription status to reflect changes
+            await refreshSubscriptionStatus();
+          }
+        } catch (error) {
+          console.error("Error marking free trial as used:", error);
+        }
+      }
     }
   };
 
@@ -188,27 +210,6 @@ const StyleAdvice = () => {
       }
       
       setStyleResponse(data);
-      
-      if (isSubscriptionStatus(subscriptionStatus, "free_trial")) {
-        try {
-          const { error } = await supabase
-            .from("subscriptions")
-            .update({ 
-              free_trial_used: true 
-            })
-            .eq("user_id", user.id)
-            .eq("status", "free_trial");
-            
-          if (error) {
-            console.error("Error updating subscription:", error);
-          } else {
-            localStorage.setItem("fashion_app_free_trial_used", "true");
-          }
-        } catch (updateError) {
-          console.error("Error in subscription update:", updateError);
-        }
-      }
-      
       toast.success("Analysis complete!");
     } catch (error) {
       console.error("Error analyzing style:", error);
