@@ -22,6 +22,15 @@ interface FlashcardDeckProps {
   originalImageUrl: string | null;
 }
 
+// Define a proper type for extended cards
+type ExtendedCard = {
+  card: number;
+  content: string;
+  suggestion_image?: string;
+  isOriginalImage?: boolean;
+  isSuggestionImage?: boolean;
+};
+
 export function FlashcardDeck({ styleResponse, originalImageUrl }: FlashcardDeckProps) {
   const [currentCard, setCurrentCard] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -30,11 +39,11 @@ export function FlashcardDeck({ styleResponse, originalImageUrl }: FlashcardDeck
   const suggestionImage = styleResponse.style_advice.suggestion_image;
   
   // Create extended cards array with original image at start and suggestion image at end
-  const extendedCards = [
+  const extendedCards: ExtendedCard[] = [
     // Original image card (always first)
     { card: 0, content: "Your Original Outfit", isOriginalImage: true },
     // Existing cards (shifted by 1)
-    ...cards,
+    ...cards.map(card => ({ ...card, isOriginalImage: false, isSuggestionImage: false })),
     // Suggestion image card (always last, if available)
     ...(suggestionImage ? [{ card: cards.length + 1, content: "AI Styling Suggestion", isSuggestionImage: true }] : [])
   ];
