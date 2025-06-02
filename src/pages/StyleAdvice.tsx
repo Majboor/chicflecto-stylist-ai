@@ -31,6 +31,7 @@ interface StyleResponse {
       content: string;
       suggestion_image?: string;
     }[];
+    suggestion_image?: string;
   };
 }
 
@@ -46,6 +47,7 @@ interface PricingTier {
 const StyleAdvice = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [styleResponse, setStyleResponse] = useState<StyleResponse | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -105,11 +107,11 @@ const StyleAdvice = () => {
       fileReader.onload = () => {
         if (typeof fileReader.result === "string") {
           setPreviewUrl(fileReader.result);
+          setOriginalImageUrl(fileReader.result); // Store for flashcard display
         }
       };
       fileReader.readAsDataURL(file);
       
-      // Don't mark trial as used here - wait until after successful analysis
       toast.success("Image uploaded! Click 'Get Style Advice' to analyze your outfit.");
     }
   };
@@ -182,7 +184,6 @@ const StyleAdvice = () => {
       return;
     }
 
-    // Check if user can access the feature
     const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
                       (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
 
@@ -224,7 +225,6 @@ const StyleAdvice = () => {
       setStyleResponse(data);
       toast.success("Analysis complete!");
       
-      // Mark free trial as used AFTER successful analysis for free trial users
       if (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial) {
         try {
           console.log("Marking free trial as used after successful analysis");
@@ -235,7 +235,6 @@ const StyleAdvice = () => {
             localStorage.setItem("fashion_app_free_trial_used", "true");
             toast.success("You've used your free trial! Subscribe for unlimited analyses.");
             
-            // Refresh subscription status after a short delay to allow user to see their results
             setTimeout(async () => {
               await refreshSubscriptionStatus();
             }, 2000);
@@ -255,6 +254,7 @@ const StyleAdvice = () => {
   const resetAnalysis = () => {
     setSelectedImage(null);
     setPreviewUrl(null);
+    setOriginalImageUrl(null);
     setStyleResponse(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -494,7 +494,10 @@ const StyleAdvice = () => {
             </div>
           ) : (
             <div className="animate-fade-in">
-              <FlashcardDeck styleResponse={styleResponse} />
+              <FlashcardDeck 
+                styleResponse={styleResponse} 
+                originalImageUrl={originalImageUrl}
+              />
               
               <div className="mt-12 text-center">
                 <button
