@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -54,9 +55,12 @@ const StyleAdvice = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user, subscriptionStatus, isLoading: authLoading, refreshSubscriptionStatus } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { subscriptionStatus, isLoading: subscriptionLoading, refreshSubscriptionStatus } = useSubscription();
   
   const navigationTimerRef = useRef<number | null>(null);
+
+  const isAuthCheckCompleted = !authLoading && !subscriptionLoading;
 
   useEffect(() => {
     if (!authLoading) {

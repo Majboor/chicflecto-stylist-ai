@@ -1,7 +1,9 @@
+
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { activateUserSubscription } from "@/services/subscriptionService";
@@ -10,7 +12,8 @@ import { verifyPaymentById } from "@/services/paymentService";
 const PaymentCallback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, refreshSubscriptionStatus } = useAuth();
+  const { user } = useAuth();
+  const { refreshSubscriptionStatus } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(true);
   const [paymentSuccessful, setPaymentSuccessful] = useState(false);
 

@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Gem, CheckCircle, Calendar, AlertCircle, CreditCard, LogOut, RefreshCw } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Accounts() {
-  const { user, subscriptionStatus, signOut, refreshSubscriptionStatus, isLoading: authLoading } = useAuth();
+  const { user, signOut, isLoading: authLoading } = useAuth();
+  const { subscriptionStatus, isLoading: subscriptionLoading, refreshSubscriptionStatus } = useSubscription();
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
@@ -21,7 +22,7 @@ export default function Accounts() {
   const isExpired = subscriptionStatus === "expired";
   const isPending = subscriptionStatus === "pending";
   
-  const isLoading = authLoading && !pageLoaded;
+  const isLoading = authLoading || subscriptionLoading;
   
   // Refresh subscription status when page loads and mark page as loaded
   useEffect(() => {
