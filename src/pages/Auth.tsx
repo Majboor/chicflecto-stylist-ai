@@ -7,142 +7,116 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { toast } from "sonner";
+import { isFirstLogin, markFirstLoginComplete } from "@/services/subscriptionService";
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const [session, setSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [redirectTimer, setRedirectTimer] = useState<number | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleAuthSession = async () => {
-      setIsLoading(true);
-      
+    // Check if user is already signed in
+    const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error getting session:", error);
-          setSession(null);
-          setIsLoading(false);
+          console.error("Session check error:", error);
           return;
         }
         
-        setSession(session);
-        
-        if (session) {
-          // Show a message that we're about to redirect
-          toast.success("Successfully signed in!");
-          
-          // Start a countdown for redirect
-          let secondsLeft = 3;
-          const timer = window.setInterval(() => {
-            secondsLeft -= 1;
-            if (secondsLeft <= 0) {
-              clearInterval(timer);
-              navigate("/");
-              setIsLoading(false);
-            } else {
-              setRedirectTimer(secondsLeft);
-            }
-          }, 1000);
-          
-          return () => clearInterval(timer);
-        } else {
-          setIsLoading(false);
+        if (data.session) {
+          console.log("User already signed in, redirecting");
+          toast.success("You're already signed in!");
+          navigate("/");
         }
       } catch (error) {
-        console.error("Unexpected error in auth flow:", error);
-        setSession(null);
-        setIsLoading(false);
+        console.error("Auth check error:", error);
       }
     };
     
-    handleAuthSession();
+    checkSession();
     
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
+        console.log("Auth state changed:", event);
         
-        if (session) {
-          toast.success("Successfully signed in!");
+        if (session && event === 'SIGNED_IN') {
+          // Mark first login for new users
+          if (isFirstLogin()) {
+            console.log("First login detected, setting up user");
+            localStorage.setItem("fashion_app_first_login", "true");
+          }
           
-          // Start a countdown for redirect
-          let secondsLeft = 3;
-          const timer = window.setInterval(() => {
-            secondsLeft -= 1;
-            if (secondsLeft <= 0) {
-              clearInterval(timer);
-              navigate("/");
-            } else {
-              setRedirectTimer(secondsLeft);
-            }
-          }, 1000);
+          toast.success("Successfully signed in!");
+          navigate("/");
         }
       }
     );
 
-    // Ensure we don't get stuck in loading state
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
-
     return () => {
       subscription.unsubscribe();
-      clearTimeout(timeoutId);
     };
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header />
       
-      <main className="flex-grow pt-24 pb-16">
-        <div className="container mx-auto px-6 max-w-md">
-          <div className="mb-10 text-center">
-            <h1 className="fashion-heading text-3xl md:text-4xl mb-4">Welcome to StylistAI</h1>
-            <p className="fashion-subheading">
+      <main className="flex-1 pt-2 pb-4">
+        <div className="container mx-auto px-4 max-w-md">
+          <div className="mb-2">
+            <h1 className="fashion-heading text-2xl mb-0.5">Welcome to StylistAI</h1>
+            <p className="fashion-subheading text-sm">
               Sign in or create an account to get personalized style advice
             </p>
           </div>
           
-          <div className="glass-card p-8 rounded-xl">
-            {isLoading ? (
-              <div className="flex flex-col justify-center items-center h-32">
-                <div className="animate-spin h-8 w-8 border-4 border-fashion-accent border-t-transparent rounded-full mb-4"></div>
-                {redirectTimer !== null && (
-                  <p className="text-fashion-text/70 mt-2">
-                    Redirecting in {redirectTimer} seconds...
-                  </p>
-                )}
+          <div className="glass-card p-3 rounded-xl">
+            {authError && (
+              <div className="mb-2 p-2 border border-red-200 bg-red-50 text-red-600 rounded-md text-sm">
+                {authError}
               </div>
-            ) : (
-              <Auth
-                supabaseClient={supabase}
-                appearance={{
-                  theme: ThemeSupa,
-                  variables: {
-                    default: {
-                      colors: {
-                        brand: "#F43F5E",
-                        brandAccent: "#E11D48",
-                      }
-                    },
-                  },
-                  // Custom styling through className
-                  style: {
-                    button: {
-                      borderRadius: '0.5rem',
-                    },
-                    input: {
-                      borderRadius: '0.5rem',
-                    }
-                  }
-                }}
-                providers={[]}
-                redirectTo={window.location.origin}
-              />
             )}
+            <Auth
+              supabaseClient={supabase}
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: "#F43F5E",
+                      brandAccent: "#E11D48",
+                    }
+                  },
+                },
+                style: {
+                  button: {
+                    borderRadius: '0.5rem',
+                  },
+                  input: {
+                    borderRadius: '0.5rem',
+                  },
+                  container: {
+                    gap: '0.5rem'
+                  },
+                  message: {
+                    margin: '0.25rem 0'
+                  },
+                  anchor: {
+                    margin: '0.25rem 0'
+                  },
+                  divider: {
+                    margin: '0.5rem 0'
+                  },
+                  label: {
+                    margin: '0.25rem 0'
+                  }
+                }
+              }}
+              providers={[]}
+              redirectTo={window.location.origin}
+            />
           </div>
         </div>
       </main>

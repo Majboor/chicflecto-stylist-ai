@@ -2,56 +2,25 @@
 import { ButtonCustom } from "./ui/button-custom"
 import { ChevronRight, Wand2, Gem, LogIn } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { useSubscription } from "@/hooks/useSubscription"
 import { useNavigate } from "react-router-dom"
-import { toast } from "@/hooks/use-toast"
-import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 export function HeroSection() {
-  const { user, subscriptionStatus, isLoading } = useAuth()
+  const { user } = useAuth()
+  const { isPremium } = useSubscription()
   const navigate = useNavigate()
-  const [localLoading, setLocalLoading] = useState(false)
-  const isPremium = subscriptionStatus === "active"
-  
-  // Reset local loading state when auth loading changes
-  useEffect(() => {
-    if (!isLoading) {
-      setLocalLoading(false);
-    }
-  }, [isLoading]);
 
   const handleAuthCheck = (path: string, e: React.MouseEvent) => {
     e.preventDefault()
     
-    // Set local loading to ensure we don't get stuck
-    setLocalLoading(true)
-    
-    if (isLoading) {
-      toast({
-        title: "Loading",
-        description: "Please wait while we check your account status",
-        variant: "default",
-      })
-      
-      // Set a timeout to clear the loading state in case it gets stuck
-      setTimeout(() => {
-        setLocalLoading(false);
-      }, 3000);
-      return
-    }
-    
     if (!user) {
-      setLocalLoading(false)
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to access this feature",
-        variant: "default",
-      })
-      navigate("/auth")
+      toast.error("Please sign in to access this feature");
+      navigate("/auth");
       return
     }
     
-    setLocalLoading(false)
-    navigate(path)
+    navigate(path);
   }
 
   return (
@@ -95,22 +64,12 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="accent"
               onClick={(e) => handleAuthCheck("/style-advice", e)}
-              disabled={localLoading || isLoading}
             >
-              {localLoading || isLoading ? (
-                <>
-                  <span>Checking...</span>
-                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                </>
+              <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
+              {user ? (
+                <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
               ) : (
-                <>
-                  <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
-                  {user ? (
-                    <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-                  ) : (
-                    <LogIn className="ml-2 h-4 w-4 transition-transform" />
-                  )}
-                </>
+                <LogIn className="ml-2 h-4 w-4 transition-transform" />
               )}
             </ButtonCustom>
             
@@ -119,22 +78,12 @@ export function HeroSection() {
               className="group rounded-full w-full sm:w-auto" 
               variant="outline"
               onClick={(e) => handleAuthCheck("/profile", e)}
-              disabled={localLoading || isLoading}
             >
-              {localLoading || isLoading ? (
-                <>
-                  <span>Checking...</span>
-                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                </>
+              <span>Create Style Profile</span>
+              {user ? (
+                <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
               ) : (
-                <>
-                  <span>Create Style Profile</span>
-                  {user ? (
-                    <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  ) : (
-                    <LogIn className="ml-1 h-4 w-4" />
-                  )}
-                </>
+                <LogIn className="ml-1 h-4 w-4" />
               )}
             </ButtonCustom>
           </div>

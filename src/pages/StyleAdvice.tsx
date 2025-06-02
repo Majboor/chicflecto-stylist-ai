@@ -9,9 +9,17 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { markFreeTrialAsUsed } from "@/services/subscriptionService";
+
+type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
+
+function isSubscriptionStatus(status: string | null, targetStatus: SubscriptionStatus): boolean {
+  return status === targetStatus;
+}
 
 interface StyleResponse {
   outfit_analysis: {
@@ -23,6 +31,7 @@ interface StyleResponse {
       content: string;
       suggestion_image?: string;
     }[];
+    suggestion_image?: string;
   };
 }
 
@@ -38,15 +47,28 @@ interface PricingTier {
 const StyleAdvice = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [styleResponse, setStyleResponse] = useState<StyleResponse | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showPricingAlert, setShowPricingAlert] = useState(false);
+  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user, subscriptionStatus, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { subscriptionStatus, isLoading: subscriptionLoading, refreshSubscriptionStatus } = useSubscription();
+  
+  const navigationTimerRef = useRef<number | null>(null);
+
+  const isAuthCheckCompleted = !authLoading && !subscriptionLoading;
+
+  useEffect(() => {
+    if (!authLoading) {
+      console.log("Auth check completed, subscription status:", subscriptionStatus);
+    }
+  }, [authLoading, subscriptionStatus]);
 
   useEffect(() => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
@@ -55,8 +77,15 @@ const StyleAdvice = () => {
         setShowPricingAlert(true);
       }, 500);
     }
+    
+    return () => {
+      if (navigationTimerRef.current) {
+        window.clearTimeout(navigationTimerRef.current);
+      }
+    };
   }, []);
 
+  // Show pricing after successful analysis for non-premium users
   useEffect(() => {
     if (styleResponse && subscriptionStatus !== "active" && pricingRef.current) {
       setTimeout(() => {
@@ -69,20 +98,7 @@ const StyleAdvice = () => {
     }
   }, [styleResponse, subscriptionStatus]);
 
-  // New effect to scroll to pricing when image is uploaded
-  useEffect(() => {
-    if (selectedImage && pricingRef.current && subscriptionStatus !== "active") {
-      setTimeout(() => {
-        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-        setShowPricingAlert(true);
-        toast.success("Upload successful! Subscribe to get style advice for your outfit!", {
-          duration: 5000,
-        });
-      }, 500);
-    }
-  }, [selectedImage, subscriptionStatus]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedImage(file);
@@ -91,9 +107,12 @@ const StyleAdvice = () => {
       fileReader.onload = () => {
         if (typeof fileReader.result === "string") {
           setPreviewUrl(fileReader.result);
+          setOriginalImageUrl(fileReader.result); // Store for flashcard display
         }
       };
       fileReader.readAsDataURL(file);
+      
+      toast.success("Image uploaded! Click 'Get Style Advice' to analyze your outfit.");
     }
   };
 
@@ -141,20 +160,40 @@ const StyleAdvice = () => {
       return;
     }
 
+    if (!isAuthCheckCompleted) {
+      toast.error("Authentication check still in progress. Please wait.");
+      return;
+    }
+
     if (!user) {
       toast.error("Please log in to use this feature");
+      if (navigationTimerRef.current) {
+        window.clearTimeout(navigationTimerRef.current);
+      }
+      
+      navigationTimerRef.current = window.setTimeout(() => {
+        setLoading(false);
+      }, 5000);
+      
       navigate("/auth");
       return;
     }
 
-    // If user is on free tier or trial, just scroll to pricing
-    if (subscriptionStatus !== "active") {
+    if (authLoading) {
+      toast.error("Still checking your subscription status. Please try again in a moment.");
+      return;
+    }
+
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+
+    if (!canAnalyze) {
       setShowPricingAlert(true);
       pricingRef.current?.scrollIntoView({ behavior: "smooth" });
+      toast.error("You need an active subscription or available free trial to analyze your outfit.");
       return;
     }
     
-    // Only active subscribers can analyze images
     setLoading(true);
     
     const formData = new FormData();
@@ -184,22 +223,26 @@ const StyleAdvice = () => {
       }
       
       setStyleResponse(data);
+      toast.success("Analysis complete!");
       
-      if (subscriptionStatus === "free_trial") {
-        const { error } = await supabase
-          .from("subscriptions")
-          .update({ 
-            is_active: true
-          })
-          .eq("user_id", user.id)
-          .eq("status", "free_trial");
+      if (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial) {
+        try {
+          console.log("Marking free trial as used after successful analysis");
+          const success = await markFreeTrialAsUsed(user.id);
           
-        if (error) {
-          console.error("Error updating subscription:", error);
+          if (success) {
+            setHasUsedFreeTrial(true);
+            localStorage.setItem("fashion_app_free_trial_used", "true");
+            toast.success("You've used your free trial! Subscribe for unlimited analyses.");
+            
+            setTimeout(async () => {
+              await refreshSubscriptionStatus();
+            }, 2000);
+          }
+        } catch (error) {
+          console.error("Error marking free trial as used:", error);
         }
       }
-      
-      toast.success("Analysis complete!");
     } catch (error) {
       console.error("Error analyzing style:", error);
       toast.error("Failed to analyze style. Please try again.");
@@ -211,6 +254,7 @@ const StyleAdvice = () => {
   const resetAnalysis = () => {
     setSelectedImage(null);
     setPreviewUrl(null);
+    setOriginalImageUrl(null);
     setStyleResponse(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -286,7 +330,17 @@ const StyleAdvice = () => {
       return (
         <button
           className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-          onClick={() => navigate("/auth")}
+          onClick={() => {
+            if (navigationTimerRef.current) {
+              window.clearTimeout(navigationTimerRef.current);
+            }
+            
+            navigationTimerRef.current = window.setTimeout(() => {
+              console.log("Navigation fallback triggered");
+            }, 3000);
+            
+            navigate("/auth");
+          }}
         >
           <LogIn className="h-4 w-4 mr-2" />
           Sign In
@@ -295,6 +349,43 @@ const StyleAdvice = () => {
     }
     
     return null;
+  };
+
+  const getButtonText = () => {
+    if (loading) {
+      return "Analyzing...";
+    }
+    
+    if (authLoading) {
+      return "Checking...";
+    }
+    
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+    
+    if (canAnalyze) {
+      return "Get Style Advice";
+    }
+    
+    return "Subscribe for Analysis";
+  };
+
+  const isButtonDisabled = () => {
+    if (!selectedImage || loading || authLoading) {
+      return true;
+    }
+    
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+    
+    return !canAnalyze;
+  };
+
+  const shouldShowUpgradePrompt = () => {
+    // Show upgrade prompt only if user has already used their trial or is expired
+    return selectedImage && 
+           !isSubscriptionStatus(subscriptionStatus, "active") && 
+           (hasUsedFreeTrial || subscriptionStatus === "expired");
   };
 
   return (
@@ -375,13 +466,13 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    disabled={!selectedImage || loading || authLoading || subscriptionStatus !== "active"}
+                    disabled={isButtonDisabled()}
                   >
-                    {loading ? "Analyzing..." : (subscriptionStatus === "active" ? "Get Style Advice" : "Subscribe for Analysis")}
+                    {getButtonText()}
                   </button>
                 </div>
                 
-                {selectedImage && subscriptionStatus !== "active" && (
+                {shouldShowUpgradePrompt() && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
                       Subscribe to our Starter package to analyze this outfit and get style advice.
@@ -403,7 +494,10 @@ const StyleAdvice = () => {
             </div>
           ) : (
             <div className="animate-fade-in">
-              <FlashcardDeck styleResponse={styleResponse} />
+              <FlashcardDeck 
+                styleResponse={styleResponse} 
+                originalImageUrl={originalImageUrl}
+              />
               
               <div className="mt-12 text-center">
                 <button
@@ -426,6 +520,12 @@ const StyleAdvice = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (navigationTimerRef.current) {
+                  window.clearTimeout(navigationTimerRef.current);
+                }
+                
+                setLoading(false);
+                
                 navigate("/outfits");
               }}
             >

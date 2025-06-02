@@ -3,13 +3,17 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
+import { activateUserSubscription } from "@/services/subscriptionService";
+import { verifyPaymentById } from "@/services/paymentService";
 
 const PaymentCallback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, refreshSubscriptionStatus } = useAuth();
+  const { user } = useAuth();
+  const { refreshSubscriptionStatus } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(true);
   const [paymentSuccessful, setPaymentSuccessful] = useState(false);
 
@@ -19,129 +23,81 @@ const PaymentCallback = () => {
         const queryParams = new URLSearchParams(location.search);
         const success = queryParams.get("success") === "true";
         const txnResponseCode = queryParams.get("txn_response_code");
-        const message = queryParams.get("data.message");
-        
-        console.log("Payment callback received:", {
-          success,
-          txnResponseCode,
-          message,
-          queryParams: Object.fromEntries(queryParams.entries())
-        });
+        const paymentId = queryParams.get("id");
+        const merchantOrderId = queryParams.get("merchant_order_id");
         
         setPaymentSuccessful(success && txnResponseCode === "APPROVED");
         
         if (!user) {
-          console.error("No authenticated user found");
           toast.error("Please log in to complete the payment process");
           navigate("/auth");
           return;
         }
         
         if (success && txnResponseCode === "APPROVED") {
-          // Get the active subscription
-          const { data: subscriptionData, error: subscriptionError } = await supabase
-            .from("subscriptions")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // Record the transaction for audit
+          await recordPaymentTransaction(
+            user.id, 
+            queryParams.get("amount_cents") ? parseInt(queryParams.get("amount_cents")!) / 100 : 14,
+            merchantOrderId,
+            paymentId,
+            "completed",
+            Object.fromEntries(queryParams.entries())
+          );
+          
+          // Activate the subscription
+          const activated = await activateUserSubscription(user.id, merchantOrderId || "manual_activation");
+          
+          if (activated) {
+            // Refresh subscription status to update UI
+            await refreshSubscriptionStatus();
             
-          if (subscriptionError) {
-            console.error("Error fetching subscription:", subscriptionError);
-            toast.error("Could not process your subscription");
-            return;
+            // Redirect to accounts page after short delay
+            setTimeout(() => {
+              navigate("/accounts");
+            }, 2000);
           }
+        } else if (paymentId && !paymentSuccessful) {
+          // Try fallback verification if the redirect parameters are unclear
+          const verified = await verifyPaymentById(paymentId);
           
-          const subscriptionId = subscriptionData?.id;
-          
-          // Record the payment transaction
-          const { error: transactionError } = await supabase
-            .from("payment_transactions")
-            .insert({
-              user_id: user.id,
-              subscription_id: subscriptionId,
-              amount: queryParams.get("amount_cents") 
-                ? parseInt(queryParams.get("amount_cents")!) / 100 
-                : 14,
-              payment_reference: queryParams.get("merchant_order_id"),
-              transaction_id: queryParams.get("id"),
-              status: "completed",
-              payment_data: Object.fromEntries(queryParams.entries())
-            });
+          if (verified) {
+            // Payment verified through fallback, activate subscription
+            await recordPaymentTransaction(
+              user.id,
+              14, // Default amount
+              merchantOrderId,
+              paymentId,
+              "completed",
+              Object.fromEntries(queryParams.entries())
+            );
             
-          if (transactionError) {
-            console.error("Error recording transaction:", transactionError);
-            toast.error("Payment recorded but subscription update failed");
-            return;
-          }
-          
-          // If we don't have a subscription yet, create one
-          if (!subscriptionId) {
-            const { data: newSubscription, error: createError } = await supabase
-              .from("subscriptions")
-              .insert({
-                user_id: user.id,
-                status: "active",
-                payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                is_active: true
-              })
-              .select()
-              .single();
-              
-            if (createError) {
-              console.error("Error creating subscription:", createError);
-              toast.error("Payment completed but couldn't create subscription");
-              return;
-            }
-          } else {
-            // Update the existing subscription to active
-            const { error: updateError } = await supabase
-              .from("subscriptions")
-              .update({
-                status: "active",
-                payment_reference: queryParams.get("merchant_order_id"),
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-                is_active: true
-              })
-              .eq("id", subscriptionId);
-              
-            if (updateError) {
-              console.error("Error updating subscription:", updateError);
-              toast.error("Payment completed but subscription update failed");
+            const activated = await activateUserSubscription(user.id, merchantOrderId || paymentId);
+            
+            if (activated) {
+              setPaymentSuccessful(true);
+              await refreshSubscriptionStatus();
+              setTimeout(() => {
+                navigate("/accounts");
+              }, 2000);
               return;
             }
           }
           
-          await refreshSubscriptionStatus();
-          toast.success("Payment successful! Your subscription is now active.");
-          
-          // Redirect to accounts page after 3 seconds
-          setTimeout(() => {
-            navigate("/accounts");
-          }, 3000);
-        } else {
-          // Record the failed payment
-          if (user) {
-            await supabase
-              .from("payment_transactions")
-              .insert({
-                user_id: user.id,
-                amount: queryParams.get("amount_cents") 
-                  ? parseInt(queryParams.get("amount_cents")!) / 100 
-                  : 14,
-                payment_reference: queryParams.get("merchant_order_id"),
-                transaction_id: queryParams.get("id"),
-                status: "failed",
-                payment_data: Object.fromEntries(queryParams.entries())
-              });
-          }
+          // Record failed payment
+          await recordPaymentTransaction(
+            user.id,
+            queryParams.get("amount_cents") ? parseInt(queryParams.get("amount_cents")!) / 100 : 14,
+            merchantOrderId,
+            paymentId,
+            "failed",
+            Object.fromEntries(queryParams.entries())
+          );
           
           toast.error("Payment was not successful. Please try again.");
         }
       } catch (error) {
-        console.error("Error processing payment callback:", error);
+        console.error("Payment callback error:", error);
         toast.error("An error occurred while processing your payment");
       } finally {
         setIsProcessing(false);
@@ -150,6 +106,31 @@ const PaymentCallback = () => {
     
     handlePaymentCallback();
   }, [location.search, user, navigate, refreshSubscriptionStatus]);
+
+  // Helper to record payment transactions
+  async function recordPaymentTransaction(
+    userId: string,
+    amount: number,
+    paymentReference: string | null,
+    transactionId: string | null,
+    status: string,
+    paymentData: any
+  ) {
+    try {
+      await supabase
+        .from("payment_transactions")
+        .insert({
+          user_id: userId,
+          amount: amount,
+          payment_reference: paymentReference,
+          transaction_id: transactionId,
+          status: status,
+          payment_data: paymentData
+        });
+    } catch (error) {
+      console.error("Error recording payment transaction:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -172,7 +153,7 @@ const PaymentCallback = () => {
                   Your subscription has been activated. You now have unlimited access to all features.
                 </p>
                 <p className="text-sm text-fashion-text/50 mt-4">
-                  Redirecting to your account page in 3 seconds...
+                  Redirecting to your account page...
                 </p>
               </div>
             ) : (

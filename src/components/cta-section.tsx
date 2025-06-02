@@ -7,23 +7,33 @@ import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 export function CTASection() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [localLoading, setLocalLoading] = useState(false);
   
+  // Reset local loading state when component unmounts
+  useEffect(() => {
+    return () => {
+      setLocalLoading(false);
+    };
+  }, []);
+  
   // Reset local loading state when auth loading changes
   useEffect(() => {
-    if (!isLoading) {
-      setLocalLoading(false);
+    if (!authLoading) {
+      // Short timeout to ensure we have the latest auth state
+      setTimeout(() => {
+        setLocalLoading(false);
+      }, 100);
     }
-  }, [isLoading]);
+  }, [authLoading]);
   
   // Set a timeout to prevent infinite loading
   useEffect(() => {
     if (localLoading) {
       const timer = setTimeout(() => {
         setLocalLoading(false);
-      }, 3000); // 3 second timeout
+      }, 1500); // 1.5 second timeout
       
       return () => clearTimeout(timer);
     }
@@ -35,20 +45,22 @@ export function CTASection() {
     // Set local loading to ensure we don't get stuck
     setLocalLoading(true);
     
-    if (isLoading) {
-      // Using the correct toast API
-      toast.loading("Please wait while we check your account status");
+    if (authLoading) {
+      toast.loading("Please wait while we check your account status", {
+        duration: 2000,
+        onAutoClose: () => setLocalLoading(false)
+      });
       return;
     }
     
     if (!user) {
-      // Using the correct toast API
       toast.error("Please sign in to access this feature");
+      setLocalLoading(false); // Important: Reset loading before navigating
       navigate("/auth");
       return;
     }
     
-    setLocalLoading(false);
+    setLocalLoading(false); // Important: Reset loading before navigating
     navigate("/style-advice");
   };
   
@@ -71,9 +83,9 @@ export function CTASection() {
               className="group rounded-full" 
               variant="accent"
               onClick={handleAuthCheck}
-              disabled={localLoading || isLoading}
+              disabled={localLoading}
             >
-              {localLoading || isLoading ? (
+              {localLoading ? (
                 <>
                   <span>Checking...</span>
                   <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
