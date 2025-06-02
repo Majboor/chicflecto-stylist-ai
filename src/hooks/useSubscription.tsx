@@ -40,12 +40,12 @@ export function useSubscription() {
         }
         
         if (subscription.free_trial_used) {
-          console.log("User's free trial is used");
+          console.log("User's free trial has been used");
           const expiredStatus: SubscriptionStatus = "expired";
           setSubscriptionStatus(expiredStatus);
           return expiredStatus;
         } else {
-          console.log("User's free trial is available");
+          console.log("User's free trial is still available");
           setSubscriptionStatus(FREE_TRIAL);
           return FREE_TRIAL;
         }

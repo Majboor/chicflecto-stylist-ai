@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -50,8 +51,7 @@ const StyleAdvice = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showPricingAlert, setShowPricingAlert] = useState(false);
-  const [freeTrialUsed, setFreeTrialUsed] = useState(false);
-  const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
+  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -64,7 +64,6 @@ const StyleAdvice = () => {
 
   useEffect(() => {
     if (!authLoading) {
-      setAuthCheckCompleted(true);
       console.log("Auth check completed, subscription status:", subscriptionStatus);
     }
   }, [authLoading, subscriptionStatus]);
@@ -84,6 +83,7 @@ const StyleAdvice = () => {
     };
   }, []);
 
+  // Show pricing after successful analysis for non-premium users
   useEffect(() => {
     if (styleResponse && subscriptionStatus !== "active" && pricingRef.current) {
       setTimeout(() => {
@@ -95,18 +95,6 @@ const StyleAdvice = () => {
       }, 1500);
     }
   }, [styleResponse, subscriptionStatus]);
-
-  useEffect(() => {
-    if (selectedImage && pricingRef.current && subscriptionStatus !== "active") {
-      setTimeout(() => {
-        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-        setShowPricingAlert(true);
-        toast.success("Upload successful! Subscribe to get style advice for your outfit!", {
-          duration: 5000,
-        });
-      }, 500);
-    }
-  }, [selectedImage, subscriptionStatus]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -121,22 +109,8 @@ const StyleAdvice = () => {
       };
       fileReader.readAsDataURL(file);
       
-      if (user && isSubscriptionStatus(subscriptionStatus, "free_trial") && !freeTrialUsed) {
-        try {
-          console.log("Marking free trial as used on image upload");
-          const success = await markFreeTrialAsUsed(user.id);
-          
-          if (success) {
-            setFreeTrialUsed(true);
-            localStorage.setItem("fashion_app_free_trial_used", "true");
-            toast.success("You've used your free trial upload!");
-            
-            await refreshSubscriptionStatus();
-          }
-        } catch (error) {
-          console.error("Error marking free trial as used:", error);
-        }
-      }
+      // Don't mark trial as used here - wait until after successful analysis
+      toast.success("Image uploaded! Click 'Get Style Advice' to analyze your outfit.");
     }
   };
 
@@ -184,7 +158,7 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (!authCheckCompleted) {
+    if (!isAuthCheckCompleted) {
       toast.error("Authentication check still in progress. Please wait.");
       return;
     }
@@ -208,10 +182,14 @@ const StyleAdvice = () => {
       return;
     }
 
-    if (!isSubscriptionStatus(subscriptionStatus, "active") && !isSubscriptionStatus(subscriptionStatus, "free_trial")) {
+    // Check if user can access the feature
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+
+    if (!canAnalyze) {
       setShowPricingAlert(true);
       pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-      toast.error("You need an active subscription to analyze your outfit.");
+      toast.error("You need an active subscription or available free trial to analyze your outfit.");
       return;
     }
     
@@ -245,6 +223,27 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       toast.success("Analysis complete!");
+      
+      // Mark free trial as used AFTER successful analysis for free trial users
+      if (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial) {
+        try {
+          console.log("Marking free trial as used after successful analysis");
+          const success = await markFreeTrialAsUsed(user.id);
+          
+          if (success) {
+            setHasUsedFreeTrial(true);
+            localStorage.setItem("fashion_app_free_trial_used", "true");
+            toast.success("You've used your free trial! Subscribe for unlimited analyses.");
+            
+            // Refresh subscription status after a short delay to allow user to see their results
+            setTimeout(async () => {
+              await refreshSubscriptionStatus();
+            }, 2000);
+          }
+        } catch (error) {
+          console.error("Error marking free trial as used:", error);
+        }
+      }
     } catch (error) {
       console.error("Error analyzing style:", error);
       toast.error("Failed to analyze style. Please try again.");
@@ -361,7 +360,10 @@ const StyleAdvice = () => {
       return "Checking...";
     }
     
-    if (isSubscriptionStatus(subscriptionStatus, "active") || isSubscriptionStatus(subscriptionStatus, "free_trial")) {
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+    
+    if (canAnalyze) {
       return "Get Style Advice";
     }
     
@@ -369,11 +371,21 @@ const StyleAdvice = () => {
   };
 
   const isButtonDisabled = () => {
-    return !selectedImage || 
-           loading || 
-           authLoading || 
-           (!isSubscriptionStatus(subscriptionStatus, "active") && 
-            !isSubscriptionStatus(subscriptionStatus, "free_trial"));
+    if (!selectedImage || loading || authLoading) {
+      return true;
+    }
+    
+    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
+                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
+    
+    return !canAnalyze;
+  };
+
+  const shouldShowUpgradePrompt = () => {
+    // Show upgrade prompt only if user has already used their trial or is expired
+    return selectedImage && 
+           !isSubscriptionStatus(subscriptionStatus, "active") && 
+           (hasUsedFreeTrial || subscriptionStatus === "expired");
   };
 
   return (
@@ -460,7 +472,7 @@ const StyleAdvice = () => {
                   </button>
                 </div>
                 
-                {selectedImage && !isSubscriptionStatus(subscriptionStatus, "active") && !isSubscriptionStatus(subscriptionStatus, "free_trial") && (
+                {shouldShowUpgradePrompt() && (
                   <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
                     <p className="text-sm font-medium text-fashion-accent">
                       Subscribe to our Starter package to analyze this outfit and get style advice.
