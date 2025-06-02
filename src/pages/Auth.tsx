@@ -7,45 +7,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { toast } from "sonner";
-import { clearSubscriptionCache } from "@/services/subscriptionService";
+import { isFirstLogin, markFirstLoginComplete } from "@/services/subscriptionService";
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const [session, setSession] = useState(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Check if the user is already signed in on mount
   useEffect(() => {
-    // Immediately check if the user is already signed in
+    // Check if user is already signed in
     const checkSession = async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error("Session check error:", error);
-          setSession(null);
-          setAuthError("Failed to check authentication status.");
           return;
         }
         
         if (data.session) {
           console.log("User already signed in, redirecting");
-          // Clear any stale trial usage data
-          localStorage.removeItem("fashion_app_free_trial_used");
-          
-          // For truly new users coming in, make sure we mark them as first-time
-          localStorage.setItem("fashion_app_first_login", "true");
-          
-          // Clear subscription cache to ensure fresh data
-          clearSubscriptionCache(data.session.user.id);
-          
-          setSession(data.session);
-          toast.success("You're signed in!");
+          toast.success("You're already signed in!");
           navigate("/");
         }
       } catch (error) {
         console.error("Auth check error:", error);
-        setAuthError("An unexpected error occurred. Please try again.");
       }
     };
     
@@ -53,24 +38,18 @@ const AuthPage = () => {
     
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
+      (event, session) => {
         console.log("Auth state changed:", event);
         
-        if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          setSession(newSession);
-          
-          // For brand new users, set proper localStorage state
-          if (event === 'SIGNED_IN') {
-            console.log("Setting up first-time user state");
+        if (session && event === 'SIGNED_IN') {
+          // Mark first login for new users
+          if (isFirstLogin()) {
+            console.log("First login detected, setting up user");
             localStorage.setItem("fashion_app_first_login", "true");
-            localStorage.removeItem("fashion_app_free_trial_used");
-            // Clear subscription cache to ensure fresh data
-            clearSubscriptionCache(newSession.user.id);
-            
-            // Immediate redirect without showing any "checking" state
-            toast.success("Successfully signed in!");
-            navigate("/");
           }
+          
+          toast.success("Successfully signed in!");
+          navigate("/");
         }
       }
     );
@@ -118,7 +97,6 @@ const AuthPage = () => {
                   input: {
                     borderRadius: '0.5rem',
                   },
-                  // Reduce spacing in the form to prevent scrolling
                   container: {
                     gap: '0.5rem'
                   },

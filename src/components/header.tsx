@@ -4,6 +4,7 @@ import { ButtonCustom } from "./ui/button-custom"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { Menu, X, Gem, User } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { useSubscription } from "@/hooks/useSubscription"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 const NAV_ITEMS = [
@@ -19,10 +20,9 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, subscriptionStatus } = useAuth()
+  const { user } = useAuth()
+  const { isPremium } = useSubscription()
   const isMobile = useIsMobile()
-  
-  const isPremium = subscriptionStatus === "active"
 
   useEffect(() => {
     const handleScroll = () => {
