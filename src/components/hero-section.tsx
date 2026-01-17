@@ -1,27 +1,10 @@
 
 import { ButtonCustom } from "./ui/button-custom"
-import { ChevronRight, Wand2, Gem, LogIn } from "lucide-react"
-import { useAuth } from "@/context/AuthContext"
-import { useSubscription } from "@/hooks/useSubscription"
+import { ChevronRight, Wand2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { toast } from "sonner"
 
 export function HeroSection() {
-  const { user } = useAuth()
-  const { isPremium } = useSubscription()
   const navigate = useNavigate()
-
-  const handleAuthCheck = (path: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    
-    if (!user) {
-      toast.error("Please sign in to access this feature");
-      navigate("/auth");
-      return
-    }
-    
-    navigate(path);
-  }
 
   return (
     <section className="relative overflow-hidden pt-32 pb-16 md:pt-40 md:pb-24">
@@ -33,14 +16,7 @@ export function HeroSection() {
       <div className="container mx-auto px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-8 inline-flex items-center rounded-full bg-fashion-light px-4 py-1.5">
-            {isPremium ? (
-              <span className="flex items-center gap-1 text-xs font-medium">
-                <Gem className="h-3.5 w-3.5 text-purple-500" />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 font-semibold">Premium Access Unlocked</span>
-              </span>
-            ) : (
-              <span className="text-xs font-medium text-fashion-accent">✨ AI-Powered Fashion Recommendations</span>
-            )}
+            <span className="text-xs font-medium text-fashion-accent">✨ AI-Powered Fashion Recommendations</span>
           </div>
           
           <h1 className="fashion-heading animate-fade-up text-4xl sm:text-5xl md:text-6xl mb-6">
@@ -53,9 +29,7 @@ export function HeroSection() {
           </h1>
           
           <p className="fashion-subheading animate-fade-up [--delay:100ms] mx-auto mt-6 max-w-2xl text-base sm:text-lg">
-            {isPremium 
-              ? "Enjoy unlimited personalized outfit recommendations and premium style insights tailored to your preferences."
-              : "Discover personalized outfit recommendations, style advice, and fashion insights tailored specifically to your preferences and body type."}
+            Discover personalized outfit recommendations, style advice, and fashion insights tailored specifically to your preferences and body type.
           </p>
           
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up [--delay:200ms]">
@@ -63,39 +37,22 @@ export function HeroSection() {
               size="xl" 
               className="group rounded-full w-full sm:w-auto" 
               variant="accent"
-              onClick={(e) => handleAuthCheck("/style-advice", e)}
+              onClick={() => navigate("/style-advice")}
             >
-              <span>{isPremium ? "Get Premium Recommendations" : "Get Style Recommendations"}</span>
-              {user ? (
-                <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-              ) : (
-                <LogIn className="ml-2 h-4 w-4 transition-transform" />
-              )}
+              <span>Get Style Recommendations</span>
+              <Wand2 className="ml-2 h-4 w-4 transition-transform group-hover:rotate-12" />
             </ButtonCustom>
             
             <ButtonCustom 
               size="xl" 
               className="group rounded-full w-full sm:w-auto" 
               variant="outline"
-              onClick={(e) => handleAuthCheck("/profile", e)}
+              onClick={() => navigate("/profile")}
             >
               <span>Create Style Profile</span>
-              {user ? (
-                <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              ) : (
-                <LogIn className="ml-1 h-4 w-4" />
-              )}
+              <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </ButtonCustom>
           </div>
-          
-          {isPremium && (
-            <div className="mt-6 animate-fade-up [--delay:300ms]">
-              <div className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-xs font-medium">
-                <Gem className="h-3 w-3" />
-                <span>Premium Member Benefits Active</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
