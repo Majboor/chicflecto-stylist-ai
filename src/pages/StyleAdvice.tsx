@@ -2,24 +2,15 @@
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { UploadCloud, X, Check, CreditCard, LogIn } from "lucide-react";
+import { UploadCloud, X, Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { FlashcardDeck } from "@/components/flashcard-deck";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
-import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { markFreeTrialAsUsed } from "@/services/subscriptionService";
-
-type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
-
-function isSubscriptionStatus(status: string | null, targetStatus: SubscriptionStatus): boolean {
-  return status === targetStatus;
-}
 
 interface StyleResponse {
   outfit_analysis: {
@@ -53,22 +44,9 @@ const StyleAdvice = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showPricingAlert, setShowPricingAlert] = useState(false);
-  const [hasUsedFreeTrial, setHasUsedFreeTrial] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pricingRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
-  const { subscriptionStatus, isLoading: subscriptionLoading, refreshSubscriptionStatus } = useSubscription();
-  
-  const navigationTimerRef = useRef<number | null>(null);
-
-  const isAuthCheckCompleted = !authLoading && !subscriptionLoading;
-
-  useEffect(() => {
-    if (!authLoading) {
-      console.log("Auth check completed, subscription status:", subscriptionStatus);
-    }
-  }, [authLoading, subscriptionStatus]);
 
   useEffect(() => {
     if (window.location.hash === "#pricing" && pricingRef.current) {
@@ -77,26 +55,7 @@ const StyleAdvice = () => {
         setShowPricingAlert(true);
       }, 500);
     }
-    
-    return () => {
-      if (navigationTimerRef.current) {
-        window.clearTimeout(navigationTimerRef.current);
-      }
-    };
   }, []);
-
-  // Show pricing after successful analysis for non-premium users
-  useEffect(() => {
-    if (styleResponse && subscriptionStatus !== "active" && pricingRef.current) {
-      setTimeout(() => {
-        pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-        setShowPricingAlert(true);
-        toast.success("See our pricing plans below to unlock unlimited style advice!", {
-          duration: 5000,
-        });
-      }, 1500);
-    }
-  }, [styleResponse, subscriptionStatus]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -107,7 +66,7 @@ const StyleAdvice = () => {
       fileReader.onload = () => {
         if (typeof fileReader.result === "string") {
           setPreviewUrl(fileReader.result);
-          setOriginalImageUrl(fileReader.result); // Store for flashcard display
+          setOriginalImageUrl(fileReader.result);
         }
       };
       fileReader.readAsDataURL(file);
@@ -117,12 +76,6 @@ const StyleAdvice = () => {
   };
 
   const initiatePayment = async () => {
-    if (!user) {
-      toast.error("Please log in to subscribe");
-      navigate("/auth");
-      return;
-    }
-
     setIsPaymentLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("payment-handler", {
@@ -159,40 +112,6 @@ const StyleAdvice = () => {
       toast.error("Please select an image first");
       return;
     }
-
-    if (!isAuthCheckCompleted) {
-      toast.error("Authentication check still in progress. Please wait.");
-      return;
-    }
-
-    if (!user) {
-      toast.error("Please log in to use this feature");
-      if (navigationTimerRef.current) {
-        window.clearTimeout(navigationTimerRef.current);
-      }
-      
-      navigationTimerRef.current = window.setTimeout(() => {
-        setLoading(false);
-      }, 5000);
-      
-      navigate("/auth");
-      return;
-    }
-
-    if (authLoading) {
-      toast.error("Still checking your subscription status. Please try again in a moment.");
-      return;
-    }
-
-    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
-                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
-
-    if (!canAnalyze) {
-      setShowPricingAlert(true);
-      pricingRef.current?.scrollIntoView({ behavior: "smooth" });
-      toast.error("You need an active subscription or available free trial to analyze your outfit.");
-      return;
-    }
     
     setLoading(true);
     
@@ -202,7 +121,7 @@ const StyleAdvice = () => {
     try {
       console.log("Sending request to API with image:", selectedImage.name);
       
-      const response = await fetch("https://fashion.techrealm.online/api/style", {
+      const response = await fetch("https://fashion.waleeds.world/api/style", {
         method: "POST",
         body: formData,
       });
@@ -224,25 +143,6 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       toast.success("Analysis complete!");
-      
-      if (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial) {
-        try {
-          console.log("Marking free trial as used after successful analysis");
-          const success = await markFreeTrialAsUsed(user.id);
-          
-          if (success) {
-            setHasUsedFreeTrial(true);
-            localStorage.setItem("fashion_app_free_trial_used", "true");
-            toast.success("You've used your free trial! Subscribe for unlimited analyses.");
-            
-            setTimeout(async () => {
-              await refreshSubscriptionStatus();
-            }, 2000);
-          }
-        } catch (error) {
-          console.error("Error marking free trial as used:", error);
-        }
-      }
     } catch (error) {
       console.error("Error analyzing style:", error);
       toast.error("Failed to analyze style. Please try again.");
@@ -266,12 +166,6 @@ const StyleAdvice = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
-  };
-
-  const scrollToPricing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    pricingRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const pricingTiers: PricingTier[] = [
@@ -313,81 +207,6 @@ const StyleAdvice = () => {
     }
   ];
 
-  const renderAuthButton = () => {
-    if (authLoading) {
-      return (
-        <button
-          className={cn(buttonVariants({ variant: "subtle", className: "rounded-full" }))}
-          disabled
-        >
-          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
-          Loading...
-        </button>
-      );
-    }
-    
-    if (!user) {
-      return (
-        <button
-          className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-          onClick={() => {
-            if (navigationTimerRef.current) {
-              window.clearTimeout(navigationTimerRef.current);
-            }
-            
-            navigationTimerRef.current = window.setTimeout(() => {
-              console.log("Navigation fallback triggered");
-            }, 3000);
-            
-            navigate("/auth");
-          }}
-        >
-          <LogIn className="h-4 w-4 mr-2" />
-          Sign In
-        </button>
-      );
-    }
-    
-    return null;
-  };
-
-  const getButtonText = () => {
-    if (loading) {
-      return "Analyzing...";
-    }
-    
-    if (authLoading) {
-      return "Checking...";
-    }
-    
-    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
-                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
-    
-    if (canAnalyze) {
-      return "Get Style Advice";
-    }
-    
-    return "Subscribe for Analysis";
-  };
-
-  const isButtonDisabled = () => {
-    if (!selectedImage || loading || authLoading) {
-      return true;
-    }
-    
-    const canAnalyze = isSubscriptionStatus(subscriptionStatus, "active") || 
-                      (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial);
-    
-    return !canAnalyze;
-  };
-
-  const shouldShowUpgradePrompt = () => {
-    // Show upgrade prompt only if user has already used their trial or is expired
-    return selectedImage && 
-           !isSubscriptionStatus(subscriptionStatus, "active") && 
-           (hasUsedFreeTrial || subscriptionStatus === "expired");
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -399,7 +218,6 @@ const StyleAdvice = () => {
             <p className="fashion-subheading max-w-2xl mx-auto">
               Upload a photo of your outfit and get personalized style advice from our AI stylist
             </p>
-            {renderAuthButton()}
           </div>
           
           {!styleResponse ? (
@@ -466,30 +284,11 @@ const StyleAdvice = () => {
                   <button
                     type="submit"
                     className={cn(buttonVariants({ variant: "accent", className: "rounded-full" }))}
-                    disabled={isButtonDisabled()}
+                    disabled={!selectedImage || loading}
                   >
-                    {getButtonText()}
+                    {loading ? "Analyzing..." : "Get Style Advice"}
                   </button>
                 </div>
-                
-                {shouldShowUpgradePrompt() && (
-                  <div className="mt-4 p-4 bg-fashion-accent/10 rounded-lg text-center">
-                    <p className="text-sm font-medium text-fashion-accent">
-                      Subscribe to our Starter package to analyze this outfit and get style advice.
-                    </p>
-                    <button
-                      type="button"
-                      className={cn(buttonVariants({ variant: "accent", className: "mt-2 rounded-full text-xs py-1 px-3" }))}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowSubscriptionModal(true);
-                      }}
-                    >
-                      Upgrade Now
-                    </button>
-                  </div>
-                )}
               </form>
             </div>
           ) : (
@@ -520,12 +319,6 @@ const StyleAdvice = () => {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (navigationTimerRef.current) {
-                  window.clearTimeout(navigationTimerRef.current);
-                }
-                
-                setLoading(false);
-                
                 navigate("/outfits");
               }}
             >
@@ -613,7 +406,7 @@ const StyleAdvice = () => {
           <DialogHeader>
             <DialogTitle>Upgrade Your Style Experience</DialogTitle>
             <DialogDescription>
-              You've used your free style analysis. Upgrade to our Starter package for unlimited style advice.
+              Upgrade to our Starter package for unlimited style advice.
             </DialogDescription>
           </DialogHeader>
           <div className="p-4 rounded-lg bg-fashion-light/20 my-4">

@@ -1,68 +1,10 @@
 
 import { ButtonCustom } from "./ui/button-custom"
-import { ArrowRight, LogIn } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { useAuth } from "@/context/AuthContext"
-import { toast } from "sonner"
-import { useEffect, useState } from "react"
 
 export function CTASection() {
-  const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [localLoading, setLocalLoading] = useState(false);
-  
-  // Reset local loading state when component unmounts
-  useEffect(() => {
-    return () => {
-      setLocalLoading(false);
-    };
-  }, []);
-  
-  // Reset local loading state when auth loading changes
-  useEffect(() => {
-    if (!authLoading) {
-      // Short timeout to ensure we have the latest auth state
-      setTimeout(() => {
-        setLocalLoading(false);
-      }, 100);
-    }
-  }, [authLoading]);
-  
-  // Set a timeout to prevent infinite loading
-  useEffect(() => {
-    if (localLoading) {
-      const timer = setTimeout(() => {
-        setLocalLoading(false);
-      }, 1500); // 1.5 second timeout
-      
-      return () => clearTimeout(timer);
-    }
-  }, [localLoading]);
-  
-  const handleAuthCheck = (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    // Set local loading to ensure we don't get stuck
-    setLocalLoading(true);
-    
-    if (authLoading) {
-      toast.loading("Please wait while we check your account status", {
-        duration: 2000,
-        onAutoClose: () => setLocalLoading(false)
-      });
-      return;
-    }
-    
-    if (!user) {
-      toast.error("Please sign in to access this feature");
-      setLocalLoading(false); // Important: Reset loading before navigating
-      navigate("/auth");
-      return;
-    }
-    
-    setLocalLoading(false); // Important: Reset loading before navigating
-    navigate("/style-advice");
-  };
   
   return (
     <section className="relative py-16 overflow-hidden">
@@ -82,29 +24,15 @@ export function CTASection() {
               size="xl" 
               className="group rounded-full" 
               variant="accent"
-              onClick={handleAuthCheck}
-              disabled={localLoading}
+              onClick={() => navigate("/style-advice")}
             >
-              {localLoading ? (
-                <>
-                  <span>Checking...</span>
-                  <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                </>
-              ) : (
-                <>
-                  <span>Get Started Now</span>
-                  {user ? (
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  ) : (
-                    <LogIn className="ml-2 h-4 w-4" />
-                  )}
-                </>
-              )}
+              <span>Get Started Now</span>
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </ButtonCustom>
           </div>
           
           <p className="mt-6 text-sm text-fashion-text/60">
-            {user ? "Personalized style advice awaits." : "Sign in to unlock all features."}
+            Personalized style advice awaits.
           </p>
         </div>
       </div>
