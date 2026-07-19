@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { markFreeTrialAsUsed } from "@/services/subscriptionService";
+import { saveStyleAnalysis } from "@/services/styleHistoryService";
+import { History } from "lucide-react";
 
 type SubscriptionStatus = "free_trial" | "active" | "cancelled" | "expired" | "pending" | null;
 
@@ -222,6 +224,15 @@ const StyleAdvice = () => {
       
       setStyleResponse(data);
       toast.success("Analysis complete!");
+
+      // Persist this look so the user can revisit it later in "My History".
+      if (user) {
+        try {
+          saveStyleAnalysis(user.id, data, originalImageUrl);
+        } catch (saveError) {
+          console.error("Could not save look to history:", saveError);
+        }
+      }
       
       if (isSubscriptionStatus(subscriptionStatus, "free_trial") && !hasUsedFreeTrial) {
         try {
@@ -496,7 +507,7 @@ const StyleAdvice = () => {
                 originalImageUrl={originalImageUrl}
               />
               
-              <div className="mt-12 text-center">
+              <div className="mt-12 flex flex-wrap justify-center gap-4">
                 <button
                   className={cn(buttonVariants({ variant: "outline", className: "rounded-full" }))}
                   onClick={(e) => {
@@ -506,6 +517,17 @@ const StyleAdvice = () => {
                   }}
                 >
                   Analyze Another Outfit
+                </button>
+                <button
+                  className={cn(buttonVariants({ variant: "subtle", className: "rounded-full" }), "gap-2")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate("/style-history");
+                  }}
+                >
+                  <History className="h-4 w-4" />
+                  View My History
                 </button>
               </div>
             </div>
