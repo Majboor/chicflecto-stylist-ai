@@ -92,8 +92,29 @@
     @apply border-border;
   }
 
+  html {
+    /* Robustness: never allow accidental horizontal scroll on small screens */
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Robustness: media never overflows its container on narrow viewports */
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Robustness: long words / URLs wrap instead of forcing horizontal scroll */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
   }
 
   /* Custom scroll bar styling */
@@ -107,11 +128,30 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-fashion-dark/20 rounded-full transition-all;
+    @apply rounded-full transition-all;
+    background: linear-gradient(180deg, hsl(var(--ring)), theme('colors.fashion.accent'));
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-fashion-dark/40;
+    @apply bg-fashion-accent;
+  }
+
+  /* Branded text selection */
+  ::selection {
+    background: theme('colors.fashion.accent' / 25%);
+    color: theme('colors.fashion.text');
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -151,6 +191,64 @@
   .text-link {
     @apply text-fashion-accent hover:text-fashion-accent/80 transition-colors underline underline-offset-4 decoration-1;
   }
+
+  /* Warm gold-to-accent gradient text for editorial emphasis */
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(100deg, theme('colors.fashion.accent'), theme('colors.fashion.gold'), theme('colors.fashion.accent'));
+    background-size: 200% auto;
+  }
+
+  /* Premium hover lift — smooth easing, layered shadow, subtle scale */
+  .lift-on-hover {
+    @apply transition-all duration-500;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .lift-on-hover:hover {
+    @apply -translate-y-1.5 shadow-lift;
+  }
+
+  /* Animated underline that grows from the left on hover */
+  .link-underline {
+    @apply relative;
+  }
+  .link-underline::after {
+    content: '';
+    @apply absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-fashion-accent transition-transform duration-300;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .link-underline:hover::after {
+    @apply scale-x-100;
+  }
+
+  /* Thin uppercase eyebrow label used above section headings */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-[0.7rem] font-medium uppercase tracking-[0.22em] text-fashion-accent;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-px w-6 bg-fashion-accent/50;
+  }
+
+  /* Frosted pill/chip used for tags and category filters */
+  .chip {
+    @apply inline-flex items-center rounded-full border border-fashion-dark/10 bg-white/60 px-2.5 py-0.5 text-xs text-fashion-text/80 backdrop-blur-sm transition-colors;
+  }
+}
+
+@layer utilities {
+  /* Diagonal light sweep for shine effects (used on badges/buttons) */
+  .sheen {
+    @apply pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit];
+  }
+  .sheen::before {
+    content: '';
+    @apply absolute inset-y-0 -left-1/2 w-1/3 -skew-x-12 opacity-0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  }
+  .group:hover .sheen::before {
+    @apply animate-shine-sweep opacity-100;
+  }
 }
 
 /* Font settings */
@@ -164,4 +262,26 @@
 
 .animate-delayed {
   animation-delay: var(--delay, 0ms);
+}
+
+/*
+ * Respect the user's "reduce motion" OS setting. People with vestibular
+ * disorders can be made physically ill by the fade-up, scale-in, slide and
+ * parallax-style transitions used throughout the app, so when the setting is
+ * on we collapse every animation/transition to a single, near-instant frame
+ * and disable smooth scrolling. Content still appears — just without movement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
 }

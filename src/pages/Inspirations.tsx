@@ -86,23 +86,33 @@ const InspirationCard = ({ inspiration }: { inspiration: typeof INSPIRATIONS[0] 
         </div>
         
         <div className="flex justify-between items-center mt-2">
-          <button 
-            onClick={() => setLiked(!liked)} 
-            className="flex items-center gap-1 text-sm text-fashion-text/70 hover:text-fashion-accent transition-colors"
+          <button
+            type="button"
+            onClick={() => setLiked(!liked)}
+            aria-pressed={liked}
+            aria-label={liked ? `Unlike ${inspiration.title}` : `Like ${inspiration.title}`}
+            className="flex items-center gap-1 text-sm text-fashion-text/70 hover:text-fashion-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-fashion-accent focus-visible:ring-offset-2 rounded"
           >
-            <Heart className={`h-4 w-4 ${liked ? 'fill-fashion-accent text-fashion-accent' : ''}`} />
+            <Heart aria-hidden="true" className={`h-4 w-4 ${liked ? 'fill-fashion-accent text-fashion-accent' : ''}`} />
             <span>{liked ? inspiration.likes + 1 : inspiration.likes}</span>
           </button>
-          
+
           <div className="flex gap-3">
-            <button className="text-fashion-text/70 hover:text-fashion-accent transition-colors">
-              <Share2 className="h-4 w-4" />
-            </button>
-            <button 
-              onClick={() => setSaved(!saved)} 
-              className={`transition-colors ${saved ? 'text-fashion-accent' : 'text-fashion-text/70 hover:text-fashion-accent'}`}
+            <button
+              type="button"
+              aria-label={`Share ${inspiration.title}`}
+              className="text-fashion-text/70 hover:text-fashion-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-fashion-accent focus-visible:ring-offset-2 rounded"
             >
-              <Bookmark className={`h-4 w-4 ${saved ? 'fill-fashion-accent' : ''}`} />
+              <Share2 aria-hidden="true" className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaved(!saved)}
+              aria-pressed={saved}
+              aria-label={saved ? `Remove ${inspiration.title} from saved` : `Save ${inspiration.title}`}
+              className={`transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-fashion-accent focus-visible:ring-offset-2 rounded ${saved ? 'text-fashion-accent' : 'text-fashion-text/70 hover:text-fashion-accent'}`}
+            >
+              <Bookmark aria-hidden="true" className={`h-4 w-4 ${saved ? 'fill-fashion-accent' : ''}`} />
             </button>
           </div>
         </div>

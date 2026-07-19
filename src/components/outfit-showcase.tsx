@@ -1,5 +1,6 @@
 
 import { useState } from "react"
+import { ChevronRight } from "lucide-react"
 import { OutfitCard } from "./ui/card-outfit"
 import { ButtonCustom } from "./ui/button-custom"
 
@@ -63,7 +64,8 @@ export function OutfitShowcase() {
   return (
     <section className="py-16 md:py-24">
       <div className="container mx-auto px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+          <span className="eyebrow mb-4">The lookbook</span>
           <h2 className="fashion-heading text-3xl sm:text-4xl mb-4">Curated Outfit Inspirations</h2>
           <p className="fashion-subheading">
             Explore style collections tailored to different occasions
@@ -83,25 +85,35 @@ export function OutfitShowcase() {
           ))}
         </div>
         
-        <div className="mx-auto mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredOutfits.map((outfit, index) => (
-            <OutfitCard
-              key={index}
-              image={outfit.image}
-              title={outfit.title}
-              description={outfit.description}
-              tags={outfit.tags}
-              className="animate-scale-in"
-              style={{
-                animationDelay: `${index * 100}ms`,
-              }}
-            />
-          ))}
-        </div>
-        
+        {filteredOutfits.length > 0 ? (
+          <div className="mx-auto mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredOutfits.map((outfit, index) => (
+              <OutfitCard
+                key={index}
+                image={outfit.image}
+                title={outfit.title}
+                description={outfit.description}
+                tags={outfit.tags}
+                className="animate-scale-in [animation-fill-mode:both]"
+                style={{
+                  animationDelay: `${index * 100}ms`,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mx-auto mt-16 max-w-md rounded-2xl border border-dashed border-fashion-dark/15 bg-fashion-light/40 py-16 text-center">
+            <p className="fashion-heading text-lg text-fashion-text/80">Nothing here yet</p>
+            <p className="mt-2 text-sm text-fashion-text/60">
+              No looks in {selectedCategory} for now — try another style.
+            </p>
+          </div>
+        )}
+
         <div className="mt-16 text-center">
-          <ButtonCustom variant="outline" className="rounded-full">
+          <ButtonCustom variant="outline" className="group rounded-full">
             View All Outfit Recommendations
+            <ChevronRight className="ml-1 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
           </ButtonCustom>
         </div>
       </div>

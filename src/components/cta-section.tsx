@@ -71,20 +71,22 @@ export function CTASection() {
       <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-fashion-accent/10 blur-3xl"></div>
       
       <div className="container relative mx-auto px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
+        <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+          <span className="eyebrow mb-4">Your move</span>
           <h2 className="fashion-heading text-3xl sm:text-4xl mb-4">Ready to Transform Your Style?</h2>
           <p className="fashion-subheading mx-auto max-w-xl">
             Create your personalized style profile and get AI-powered fashion recommendations today
           </p>
           
           <div className="mt-10">
-            <ButtonCustom 
-              size="xl" 
-              className="group rounded-full" 
+            <ButtonCustom
+              size="xl"
+              className="group relative overflow-hidden rounded-full shadow-soft transition-shadow hover:shadow-gold-glow"
               variant="accent"
               onClick={handleAuthCheck}
               disabled={localLoading}
             >
+              {!localLoading && <span className="sheen" />}
               {localLoading ? (
                 <>
                   <span>Checking...</span>
