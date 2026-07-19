@@ -1,0 +1,10 @@
+# robots.txt for ChicFlecto — https://fashion.techrealm.ai
+User-agent: *
+Allow: /
+# Personal/authenticated areas — no SEO value, keep crawlers out
+Disallow: /profile
+Disallow: /accounts
+Disallow: /style-advice
+Disallow: /payment-callback
+
+Sitemap: https://fashion.techrealm.ai/sitemap.xml
